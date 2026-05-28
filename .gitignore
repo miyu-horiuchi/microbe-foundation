@@ -1,0 +1,47 @@
+# Local IDE / tool state
+.claude/
+.letta/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.python-version
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Data — gitignored by default; explicit subdirs added later via git add -f if small
+data/
+*.parquet
+*.h5
+*.npz
+*.fasta
+*.fna
+*.faa
+*.gbk
+*.gbff
+
+# Model artifacts
+checkpoints/
+runs/
+wandb/
+*.pt
+*.ckpt
+*.safetensors
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Env / secrets
+.env
+.env.local
+*.key

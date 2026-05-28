@@ -1,0 +1,298 @@
+{
+  "schema_version": "0.1.0",
+  "schema_date": "2026-05-28",
+  "n_traits": 21,
+  "traits": [
+    {
+      "name": "gram_stain",
+      "block": "morphology",
+      "head": "multiclass",
+      "bacdive_path": "Morphology.cell_morphology.gram_stain",
+      "description": "Gram stain reaction.",
+      "estimated_label_count": 15900,
+      "classes_source": "enumerated",
+      "classes": [
+        "positive",
+        "negative",
+        "variable"
+      ],
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "cell_shape",
+      "block": "morphology",
+      "head": "multiclass",
+      "bacdive_path": "Morphology.cell_morphology.cell_shape",
+      "description": "Predominant cell morphology.",
+      "estimated_label_count": 15900,
+      "classes_source": "enumerated",
+      "classes": [
+        "coccus",
+        "rod",
+        "vibrio",
+        "spiral",
+        "filament",
+        "pleomorphic",
+        "other"
+      ],
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "motility",
+      "block": "morphology",
+      "head": "binary",
+      "bacdive_path": "Morphology.cell_morphology.motility",
+      "description": "Whether the organism is motile.",
+      "estimated_label_count": 15300,
+      "classes_source": "enumerated",
+      "classes": null,
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "sporulation",
+      "block": "morphology",
+      "head": "binary",
+      "bacdive_path": "Morphology.multicellular_morphology.spore_formation",
+      "description": "Whether the organism forms spores.",
+      "estimated_label_count": 5600,
+      "classes_source": "enumerated",
+      "classes": null,
+      "n_outputs": null,
+      "notes": "Field may also appear under Physiology_and_metabolism.spore_formation."
+    },
+    {
+      "name": "pigmentation",
+      "block": "morphology",
+      "head": "binary",
+      "bacdive_path": "Morphology.pigmentation",
+      "description": "Whether the organism produces pigments.",
+      "estimated_label_count": 6800,
+      "classes_source": "enumerated",
+      "classes": null,
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "oxygen_tolerance",
+      "block": "physiology",
+      "head": "multiclass",
+      "bacdive_path": "Physiology_and_metabolism.oxygen_tolerance",
+      "description": "Oxygen requirement / tolerance class.",
+      "estimated_label_count": 23700,
+      "classes_source": "enumerated",
+      "classes": [
+        "obligate_aerobe",
+        "facultative_aerobe",
+        "microaerophile",
+        "aerotolerant",
+        "facultative_anaerobe",
+        "obligate_anaerobe"
+      ],
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "catalase",
+      "block": "physiology",
+      "head": "binary",
+      "bacdive_path": "Physiology_and_metabolism.enzymes[value=catalase].activity",
+      "description": "Catalase enzyme activity (positive / negative).",
+      "estimated_label_count": 14600,
+      "classes_source": "enumerated",
+      "classes": null,
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "cytochrome_oxidase",
+      "block": "physiology",
+      "head": "binary",
+      "bacdive_path": "Physiology_and_metabolism.enzymes[value=cytochrome_oxidase].activity",
+      "description": "Cytochrome oxidase activity (positive / negative).",
+      "estimated_label_count": 13100,
+      "classes_source": "enumerated",
+      "classes": null,
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "halophily",
+      "block": "physiology",
+      "head": "multiclass",
+      "bacdive_path": "Physiology_and_metabolism.halophily",
+      "description": "Salt tolerance class (curated, not raw NaCl optimum).",
+      "estimated_label_count": 13100,
+      "classes_source": "enumerated",
+      "classes": [
+        "non_halophile",
+        "halotolerant",
+        "halophile",
+        "extreme_halophile"
+      ],
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "temperature_class",
+      "block": "growth",
+      "head": "multiclass",
+      "bacdive_path": "Culture_and_growth_conditions.culture_temp",
+      "description": "Temperature optimum binned into growth class.",
+      "estimated_label_count": 48900,
+      "classes_source": "enumerated",
+      "classes": [
+        "psychrophile",
+        "psychrotroph",
+        "mesophile",
+        "thermophile",
+        "hyperthermophile"
+      ],
+      "n_outputs": null,
+      "notes": "Bin from numeric optimum: psychro <15C, psychrotroph 15-20C, meso 20-45C, thermo 45-80C, hyperthermo >80C. Phase 1 must convert raw temp ranges to class."
+    },
+    {
+      "name": "ph_class",
+      "block": "growth",
+      "head": "multiclass",
+      "bacdive_path": "Culture_and_growth_conditions.culture_pH",
+      "description": "pH optimum binned into growth class.",
+      "estimated_label_count": 7800,
+      "classes_source": "enumerated",
+      "classes": [
+        "acidophile",
+        "neutrophile",
+        "alkaliphile"
+      ],
+      "n_outputs": null,
+      "notes": "Bin from numeric optimum: acidophile <5.5, neutrophile 5.5-8.5, alkaliphile >8.5."
+    },
+    {
+      "name": "cultivation_medium",
+      "block": "cultivation",
+      "head": "multilabel",
+      "bacdive_path": "Culture_and_growth_conditions.culture_medium[link~=mediadive]",
+      "description": "Which MediaDive media support growth (set prediction).",
+      "estimated_label_count": 28000,
+      "classes_source": "mediadive_top_n",
+      "classes": null,
+      "n_outputs": 200,
+      "notes": "Top-N most-frequent MediaDive medium IDs as multilabel targets. N TBD in Phase 1."
+    },
+    {
+      "name": "carbon_utilization",
+      "block": "cultivation",
+      "head": "multilabel",
+      "bacdive_path": "Physiology_and_metabolism.metabolite_utilization",
+      "description": "Per-substrate utilization (positive / not-tested-or-negative).",
+      "estimated_label_count": 29600,
+      "classes_source": "madin_substrates",
+      "classes": null,
+      "n_outputs": 80,
+      "notes": "Use Madin et al. curated ~80-substrate catalog for interoperability with BacBench."
+    },
+    {
+      "name": "metabolite_production",
+      "block": "cultivation",
+      "head": "multilabel",
+      "bacdive_path": "Physiology_and_metabolism.metabolite_production",
+      "description": "Per-metabolite production (e.g., indole, acid, gas).",
+      "estimated_label_count": 24600,
+      "classes_source": "bacdive_enum",
+      "classes": null,
+      "n_outputs": 50,
+      "notes": "Class set discovered from BacDive value enumeration in Phase 1; cap at ~50 most frequent."
+    },
+    {
+      "name": "amr_phenotype",
+      "block": "cultivation",
+      "head": "multilabel",
+      "bacdive_path": "Physiology_and_metabolism.antibiotic_resistance",
+      "description": "Resistance phenotype per antibiotic drug class.",
+      "estimated_label_count": 10000,
+      "classes_source": "card_drug_classes",
+      "classes": null,
+      "n_outputs": 20,
+      "notes": "Map per-antibiotic R/S results to CARD drug-class taxonomy. Estimate is placeholder; verify in Phase 1."
+    },
+    {
+      "name": "biosafety_level",
+      "block": "safety",
+      "head": "multiclass",
+      "bacdive_path": "Application_and_interaction.risk_assessment.biosafety_level",
+      "description": "Assigned biosafety level (BSL-1 through BSL-4).",
+      "estimated_label_count": 26200,
+      "classes_source": "enumerated",
+      "classes": [
+        "BSL-1",
+        "BSL-2",
+        "BSL-3",
+        "BSL-4"
+      ],
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "pathogenicity_human",
+      "block": "safety",
+      "head": "binary",
+      "bacdive_path": "Application_and_interaction.risk_assessment.pathogenicity_human",
+      "description": "Whether the organism is a known human pathogen.",
+      "estimated_label_count": 2800,
+      "classes_source": "enumerated",
+      "classes": null,
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "pathogenicity_animal",
+      "block": "safety",
+      "head": "binary",
+      "bacdive_path": "Application_and_interaction.risk_assessment.pathogenicity_animal",
+      "description": "Whether the organism is a known animal pathogen.",
+      "estimated_label_count": 2800,
+      "classes_source": "enumerated",
+      "classes": null,
+      "n_outputs": null,
+      "notes": ""
+    },
+    {
+      "name": "isolation_source",
+      "block": "ecology",
+      "head": "multiclass",
+      "bacdive_path": "Isolation_sampling_environmental_information.isolation",
+      "description": "Habitat category derived from isolation source text.",
+      "estimated_label_count": 60400,
+      "classes_source": "bacdive_enum",
+      "classes": null,
+      "n_outputs": 20,
+      "notes": "Phase 1 must map free-text isolation source into a curated ~20-class taxonomy (host-associated, marine, freshwater, soil, sediment, plant-associated, extreme-environment, food, industrial, clinical, etc.)."
+    },
+    {
+      "name": "country",
+      "block": "ecology",
+      "head": "multiclass",
+      "bacdive_path": "Isolation_sampling_environmental_information.isolation.country",
+      "description": "Country of isolation (ISO-3166 alpha-2 codes).",
+      "estimated_label_count": 53900,
+      "classes_source": "bacdive_enum",
+      "classes": null,
+      "n_outputs": 200,
+      "notes": "Class set is the ISO-3166 alpha-2 codes that appear with >=10 strains in BacDive."
+    },
+    {
+      "name": "fatty_acid_profile",
+      "block": "chemotaxonomy",
+      "head": "regression_vector",
+      "bacdive_path": "Physiology_and_metabolism.fatty_acid_profile",
+      "description": "Relative abundance (%) of each major fatty acid in the membrane.",
+      "estimated_label_count": 7200,
+      "classes_source": "bacdive_fame_top_n",
+      "classes": null,
+      "n_outputs": 30,
+      "notes": "First-ever genome-to-FAME predictor (literature confirmed white-space). Phase 1 picks top-30 most-frequent FAMEs across BacDive; output is a 30-d normalized abundance vector. Loss = masked MSE on log-ratio transform."
+    }
+  ]
+}

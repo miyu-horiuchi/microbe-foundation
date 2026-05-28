@@ -474,7 +474,7 @@ def main() -> None:
 
     if args.save_metrics:
         out = {
-            "run_name": args.run_name or args.features.name if args.features else "smoke",
+            "run_name": args.run_name or (args.features.name if args.features else "smoke"),
             "split_level": args.split_level,
             "epochs": args.epochs,
             "n_params": n_params,

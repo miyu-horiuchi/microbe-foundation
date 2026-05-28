@@ -140,7 +140,11 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-45 tests, ~2 s on a laptop. Run before any PR touching `schema.py`, `parse_bacdive.py`, `splits.py`, or `model.py`.
+45 tests, ~2 s on a laptop. Run before any PR touching `schema.py`, `parse_bacdive.py`, `splits.py`, or `model.py`. GitHub Actions runs the same suite on every push to main via `.github/workflows/test.yml` (Python 3.11 + 3.12).
+
+## Submitting to the leaderboard
+
+External submissions are welcome — anyone with a microbial genome encoder (KO, ESM-2, Bacformer, BacPT, Evo 2, your own) can produce a comparable run. See **`BENCHMARK.md`** for the protocol: which features are allowed, what splits to use, what to report, and how to submit a PR. Submissions are aggregated into `paper/tables/07_leaderboard.md` by `python leaderboard.py`.
 
 ## Built on
 

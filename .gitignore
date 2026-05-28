@@ -49,6 +49,9 @@ wandb/
 # (keep table generator + source; tables themselves can be regenerated)
 # Note: we DO commit paper/tables/ as the latest snapshot for reviewers,
 # but they should never be hand-edited.
+# Exception: the leaderboard table is gitignored until there are real
+# external submissions; it's auto-regenerated from runs/*.json locally.
+paper/tables/07_leaderboard.md
 
 # Notebooks
 .ipynb_checkpoints/

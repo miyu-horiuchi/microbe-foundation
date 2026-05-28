@@ -363,7 +363,9 @@ def run_eval(model, loader, specs, device) -> dict[str, float]:
 
 
 def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float):
+    """val_loader may be None when the split has zero validation strains (small samples)."""
     optim = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    val_metrics: dict[str, float] = {}
     for epoch in range(1, epochs + 1):
         model.train(True)
         t0 = time.time()
@@ -379,13 +381,14 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
             running += loss.item()
             n_batches += 1
         train_loss = running / max(n_batches, 1)
-        val_metrics = run_eval(model, val_loader, specs, device)
-        avg_val = sum(val_metrics.values()) / max(len(val_metrics), 1)
+        if val_loader is not None:
+            val_metrics = run_eval(model, val_loader, specs, device)
+            avg_val = sum(val_metrics.values()) / max(len(val_metrics), 1)
+            val_s = f"val_avg={avg_val:.4f}"
+        else:
+            val_s = "val=skipped(empty)"
         elapsed = time.time() - t0
-        print(
-            f"  epoch {epoch:>3}  train_loss={train_loss:.4f}  "
-            f"val_avg={avg_val:.4f}  ({elapsed:.1f}s)"
-        )
+        print(f"  epoch {epoch:>3}  train_loss={train_loss:.4f}  {val_s}  ({elapsed:.1f}s)")
     return val_metrics
 
 
@@ -463,14 +466,19 @@ def main() -> None:
     print(f"\nmodel: {n_params:,} parameters  (device={device})")
 
     print(f"\ntraining for {args.epochs} epochs...")
-    train(model, loaders["train"], loaders["val"], specs, device, args.epochs, args.lr)
+    train(model, loaders["train"], loaders.get("val"), specs, device, args.epochs, args.lr)
 
-    print(f"\nfinal test metrics:")
-    test_metrics = run_eval(model, loaders["test"], specs, device)
-    for name, mval in sorted(test_metrics.items()):
-        kind = specs[name]["head_type"]
-        unit = "RMSE" if kind == "regression_vector" else ("F1" if kind == "multilabel" else "acc")
-        print(f"  {name:<24} {kind:<18} {unit}={mval:.4f}")
+    test_loader = loaders.get("test")
+    if test_loader is None:
+        print("\nno test split (sample too small) — skipping test eval")
+        test_metrics: dict[str, float] = {}
+    else:
+        print(f"\nfinal test metrics:")
+        test_metrics = run_eval(model, test_loader, specs, device)
+        for name, mval in sorted(test_metrics.items()):
+            kind = specs[name]["head_type"]
+            unit = "RMSE" if kind == "regression_vector" else ("F1" if kind == "multilabel" else "acc")
+            print(f"  {name:<24} {kind:<18} {unit}={mval:.4f}")
 
     if args.save_metrics:
         out = {

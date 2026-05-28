@@ -487,32 +487,34 @@ def x_biosafety_level(rec: dict) -> str | None:
     return f"BSL-{max(bsls)}"  # most conservative
 
 
-def x_pathogenicity_human(rec: dict) -> bool | None:
+def _pathogenicity(rec: dict, field_keys: tuple[str, ...]) -> bool | None:
+    """
+    BacDive pathogenicity fields use freeform strings (e.g., 'yes, in single cases',
+    'yes', 'no', 'no, but opportunistic'). Use prefix matching rather than exact
+    token matching to capture the long tail of qualifications.
+    """
     safety = rec.get("Interaction and safety", {}) or {}
     if not isinstance(safety, dict):
         return None
-    values = []
     for ra in as_list(safety.get("risk assessment")):
         if not isinstance(ra, dict):
             continue
-        for key in ("pathogenicity human", "pathogenicity_human"):
+        for key in field_keys:
             if key in ra:
-                values.append(ra[key])
-    return majority_bool(values) if values else None
+                s = str(ra[key]).strip().lower()
+                if s.startswith("yes"):
+                    return True
+                if s.startswith("no"):
+                    return False
+    return None
+
+
+def x_pathogenicity_human(rec: dict) -> bool | None:
+    return _pathogenicity(rec, ("pathogenicity human", "pathogenicity_human"))
 
 
 def x_pathogenicity_animal(rec: dict) -> bool | None:
-    safety = rec.get("Interaction and safety", {}) or {}
-    if not isinstance(safety, dict):
-        return None
-    values = []
-    for ra in as_list(safety.get("risk assessment")):
-        if not isinstance(ra, dict):
-            continue
-        for key in ("pathogenicity animal", "pathogenicity_animal"):
-            if key in ra:
-                values.append(ra[key])
-    return majority_bool(values) if values else None
+    return _pathogenicity(rec, ("pathogenicity animal", "pathogenicity_animal"))
 
 
 def x_isolation_source(rec: dict) -> str | None:
@@ -611,6 +613,18 @@ def parse_record(rec: dict) -> dict:
         except Exception as e:
             out[name] = None
             out.setdefault("_parse_errors", []).append(f"{name}: {type(e).__name__}: {e}")
+
+    # Post-derivation: BacDive's `pathogenicity human/animal` fields are
+    # positive-only (only filled when documented "yes"). Use BSL-1 ("not a
+    # recognized disease-causing agent" — German biosafety classification) as
+    # a negative-class proxy when no explicit positive is present. This is
+    # the standard convention in microbial-pathogenicity datasets and gives
+    # the model proper binary labels instead of positive-only signals.
+    if out.get("biosafety_level") == "BSL-1":
+        if out.get("pathogenicity_human") is None:
+            out["pathogenicity_human"] = False
+        if out.get("pathogenicity_animal") is None:
+            out["pathogenicity_animal"] = False
     return out
 
 

@@ -470,3 +470,59 @@
   doi     = {10.1093/nargab/lqaf174},
   note    = {Complementary approach: NLP on literature + genome analysis, not a foundation model per se but tackles the same task space (pathogenicity, metabolism, environment, host, AMR, morphology, growth).}
 }
+
+% ============================================================
+%  Live-search additions (2026-05-28)
+% ============================================================
+
+@article{loomans2025migenpro,
+  title   = {{MiGenPro}: A linked data workflow for phenotype-genotype prediction of microbial traits using machine learning},
+  author  = {Loomans, Mike and Suarez-Diez, Maria and Schaap, Peter J. and Saccenti, Edoardo and Koehorst, Jasper J.},
+  journal = {bioRxiv},
+  year    = {2025},
+  doi     = {10.1101/2025.08.21.671437},
+  note    = {Workflow tool predicting 4 traits (motility, Gram, optimal T range, sporulation) with classical ML; 5-fold CV. Related workflow, not a foundation model.}
+}
+
+@article{munch2025llmpheno,
+  title   = {Comparative Assessment of Large Language Models for Microbial Phenotype Annotation},
+  author  = {M{\"u}nch, Philipp C. and Safaei, Nasim and Mreches, Ren{\'e} and Binder, Martin and Han, Yichen and Robertson, Gary and Franzosa, Eric A. and Huttenhower, Curtis and McHardy, Alice C.},
+  journal = {bioRxiv},
+  year    = {2025},
+  doi     = {10.1101/2025.11.24.690272},
+  note    = {Benchmarks 50+ text LLMs (Claude Sonnet 4, GPT-5 family) for microbial phenotype annotation from text. Orthogonal to genome-based prediction.}
+}
+
+@article{hoffert2025periodictable,
+  title   = {A periodic table of bacteria?: Mapping bacterial diversity in trait space},
+  author  = {Hoffert, Michael and Gorman, Evan and Lladser, Manuel E. and Fierer, Noah},
+  journal = {bioRxiv},
+  year    = {2025},
+  doi     = {10.1101/2025.07.11.664459},
+  note    = {Organizes 50,745 genomes into trait-space clades via Haar wavelet transformation on 6 predicted traits. Visualization framework, not a predictor.}
+}
+
+@article{liu2025ogt,
+  title   = {Machine learning prediction of bacterial optimal growth temperature from protein domain signatures reveals thermoadaptation mechanisms},
+  author  = {Liu, H. and Zhu, G. and Chen, L. and Ye, H. and Zhang, Y. and Han, G.},
+  journal = {BMC Genomics},
+  year    = {2025},
+  note    = {Single-trait optimal growth temperature predictor extending Engqvist 2018. Cite as comparator on temperature head.}
+}
+
+@article{wan2025oxygen,
+  title   = {Decoding oxygen preference: machine learning discovers functional genes in bacteria},
+  author  = {Wan, S. and Liu, H. and Zhu, G. and Geng, Y. and Li, W. and Chen, L. and Zhang, Y.},
+  journal = {Genomics},
+  year    = {2025},
+  note    = {Single-trait oxygen preference predictor from genomic features. Cite as comparator on oxygen tolerance head.}
+}
+
+@misc{bacbench2025,
+  title        = {{BacBench}: A framework for embedding bacterial genomes with genomic language models and evaluating their performance on downstream tasks},
+  author       = {Wiatrak, Maciej and others},
+  year         = {2025},
+  howpublished = {\url{https://github.com/macwiatrak/BacBench}},
+  note         = {Benchmark covering 24,462 genomes x 139 traits with genus-disjoint splits. No chemotaxonomy, no MediaDive medium linkages, no pathogenicity/BSL, no family-level splits. Released Jan 2025, pre-publication as of May 2026.}
+}
+

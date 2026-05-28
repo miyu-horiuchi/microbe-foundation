@@ -57,7 +57,11 @@ Several adjacent efforts contextualize but do not overlap with microbe-foundatio
 - **Gómez-Pérez & Keller 2025** [@gomezperez2025nlp] — NLP-from-literature combined with genome features.
 - **HostPhinder** [@villarroel2016hostphinder] — phage host prediction (analogous task in a different domain).
 
-## 8. Positioning
+## 8. microbe-model v0 (direct predecessor)
+
+This project builds directly on **microbe-model** [https://github.com/miyu-horiuchi/microbe-model], a single-task cultivation-medium predictor that established the BacDive + NCBI Datasets + pyrodigal + ESM-2 pipeline. microbe-foundation reuses microbe-model's `pipeline.py` (parallel in-memory genome fetch), `features/genome.py` (pyrodigal CDS prediction), `features/embeddings.py` (ESM-2 mean-pool), and `data/bacdive.py` / `data/mediadive.py` clients verbatim, vendored into the `microbe_model/` subpackage. The extensions are: (a) the 21-head trait schema generalizing beyond cultivation medium, (b) family-held-out splits replacing within-genus evaluation, (c) the masked multi-task loss across heterogeneous heads, and (d) the chemotaxonomy (FAME) prediction head.
+
+## 9. Positioning
 
 The contribution of microbe-foundation is **not** to be the first foundation model for microbial genomes — that ground is already held by MicroGenomer, Bacformer, and BacPT. The contribution is the **assembly of four currently-unfilled gaps** into a single artifact:
 

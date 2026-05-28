@@ -20,15 +20,22 @@ env/
 .pytest_cache/
 
 # Data — gitignored by default; explicit subdirs added later via git add -f if small
-data/
-*.parquet
+# Note: leading slash so this only matches the top-level data/ directory,
+# not nested ones like microbe_model/data/ (a Python subpackage).
+/data/
 *.h5
-*.npz
 *.fasta
 *.fna
 *.faa
 *.gbk
 *.gbff
+
+# Big binary data is gitignored, but allow it under reference_data/ for
+# small precomputed reference parquets we want to ship.
+*.parquet
+*.npz
+!reference_data/*.parquet
+!reference_data/*.npz
 
 # Model artifacts
 checkpoints/

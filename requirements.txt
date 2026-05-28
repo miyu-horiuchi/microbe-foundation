@@ -1,0 +1,24 @@
+# Core pipeline (fetch / parse / splits / vocab / model) — works on Python 3.9+
+pandas>=2.0
+pyarrow>=15
+numpy>=1.26
+tqdm>=4.66
+
+# Genome featurization (extract_genome_accessions + microbe_model package)
+pyrodigal>=3.5
+biopython>=1.83
+requests>=2.32
+python-dotenv>=1.0
+
+# Multi-task model (model.py)
+torch>=2.2
+
+# ESM-2 feature extraction (compute_esm2_features.py)
+# NOTE: this path requires Python >= 3.11 because of transitive
+# transformers/Pillow compatibility. Older Python can still run
+# fetch/parse/splits/vocab/model with random features.
+transformers>=4.40
+
+# Optional baselines
+scikit-learn>=1.4
+xgboost>=2.0

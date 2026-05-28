@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -41,22 +42,17 @@ DONE_PATH = DATA_DIR / "bacdive_done.txt"
 def fetch_one(
     bacdive_id: int, timeout: float = 30.0, max_retries: int = 5
 ) -> tuple[int, dict | None, str]:
-    """Fetch one strain. Returns (id, record_dict_or_None, status_str)."""
+    """Fetch one strain. Returns (id, record_dict_or_None, status_str). Never raises."""
     url = f"{API_BASE}/{bacdive_id}"
     req = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
 
     for attempt in range(max_retries):
+        wrapper = None
         try:
             with urlopen(req, timeout=timeout) as resp:
-                if resp.status == 200:
-                    # API wraps strain data as {count, next, previous, results: {str(id): {...}}}
-                    # Unwrap to just the inner strain record.
-                    wrapper = json.loads(resp.read())
-                    inner = wrapper.get("results", {}).get(str(bacdive_id))
-                    if inner is None:
-                        return (bacdive_id, None, "empty_results")
-                    return (bacdive_id, inner, "ok")
-                return (bacdive_id, None, f"http_{resp.status}")
+                if resp.status != 200:
+                    return (bacdive_id, None, f"http_{resp.status}")
+                wrapper = json.loads(resp.read())
         except HTTPError as e:
             if e.code == 404:
                 return (bacdive_id, None, "404")
@@ -64,10 +60,29 @@ def fetch_one(
                 time.sleep(min(2**attempt, 30))
                 continue
             return (bacdive_id, None, f"http_{e.code}")
-        except (URLError, TimeoutError, ConnectionError):
-            time.sleep(min(2**attempt, 30))
         except json.JSONDecodeError:
             return (bacdive_id, None, "json_error")
+        except (URLError, socket.timeout, TimeoutError, ConnectionError, OSError):
+            time.sleep(min(2**attempt, 30))
+            continue
+        except Exception as e:  # final safety net — never let an exception kill the run
+            return (bacdive_id, None, f"unexpected:{type(e).__name__}")
+
+        # API normally returns {results: {str(id): {...}}}, but occasionally returns
+        # {results: [{...}]} or other shapes. Be defensive — never crash the run.
+        try:
+            results = wrapper.get("results") if isinstance(wrapper, dict) else None
+            if isinstance(results, dict):
+                inner = results.get(str(bacdive_id))
+            elif isinstance(results, list) and len(results) == 1 and isinstance(results[0], dict):
+                inner = results[0]
+            else:
+                inner = None
+            if inner is None:
+                return (bacdive_id, None, "no_results")
+            return (bacdive_id, inner, "ok")
+        except Exception as e:
+            return (bacdive_id, None, f"parse_error:{type(e).__name__}")
 
     return (bacdive_id, None, "max_retries_exceeded")
 
@@ -115,7 +130,13 @@ def main() -> None:
             futures = [ex.submit(fetch_one, bid) for bid in batch]
 
             for fut in as_completed(futures):
-                bid, record, status = fut.result()
+                try:
+                    bid, record, status = fut.result()
+                except Exception as e:
+                    # Defensive — fetch_one already catches everything, but never trust the future
+                    print(f"  [warn] future raised {type(e).__name__}: {e}", flush=True)
+                    n_err += 1
+                    continue
                 done_f.write(f"{bid}\n")
 
                 if status == "ok" and record is not None:

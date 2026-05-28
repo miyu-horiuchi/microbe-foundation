@@ -131,6 +131,17 @@ microbe-foundation/
 
 Three 2025–2026 preprints (MicroGenomer, Bacformer, BacPT) have claimed the foundation-model framing for microbial genomes. microbe-foundation is **not** trying to be a better encoder than those — it is the missing **benchmark** and **chemotaxonomy white-space**. Anyone (including the three competitor teams) can swap in their encoder as `features.npz` and report numbers on the same 21-head, family-held-out evaluation. The hope: anchor the next 5 years of microbial trait-prediction work through the benchmark rather than any single model. See `RELATED_WORK.md` for the full positioning argument.
 
+## Tests
+
+A pytest suite at `tests/` covers the schema invariants (21 heads, 7 blocks, FAME head never accidentally dropped), parser correctness on a synthetic record exercising all field shapes, split correctness (no group spans buckets, hits target ratios), and model construction (heads match schema, masked loss flows gradients).
+
+```bash
+pip install pytest
+python -m pytest tests/ -v
+```
+
+45 tests, ~2 s on a laptop. Run before any PR touching `schema.py`, `parse_bacdive.py`, `splits.py`, or `model.py`.
+
 ## Built on
 
 - **[microbe-model v0](https://github.com/miyu-horiuchi/microbe-model)** — the single-task cultivation-medium predictor that established the BacDive + NCBI Datasets + pyrodigal + ESM-2 pipeline. Pipeline modules vendored under `microbe_model/`.

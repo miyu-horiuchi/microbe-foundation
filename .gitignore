@@ -45,6 +45,11 @@ wandb/
 *.ckpt
 *.safetensors
 
+# Auto-generated paper tables that depend on data files
+# (keep table generator + source; tables themselves can be regenerated)
+# Note: we DO commit paper/tables/ as the latest snapshot for reviewers,
+# but they should never be hand-edited.
+
 # Notebooks
 .ipynb_checkpoints/
 

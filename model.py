@@ -405,6 +405,8 @@ def main() -> None:
     parser.add_argument("--dropout", type=float, default=0.2)
     parser.add_argument("--feat-dim", type=int, default=128, help="Smoke-test feature dim (ignored if --features given)")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--save-metrics", type=Path, default=None, help="Write final test metrics to this JSON path")
+    parser.add_argument("--run-name", type=str, default="", help="Tag for the saved metrics (e.g., 'esm2-35M-family')")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -469,6 +471,34 @@ def main() -> None:
         kind = specs[name]["head_type"]
         unit = "RMSE" if kind == "regression_vector" else ("F1" if kind == "multilabel" else "acc")
         print(f"  {name:<24} {kind:<18} {unit}={mval:.4f}")
+
+    if args.save_metrics:
+        out = {
+            "run_name": args.run_name or args.features.name if args.features else "smoke",
+            "split_level": args.split_level,
+            "epochs": args.epochs,
+            "n_params": n_params,
+            "feature_dim": features.shape[1],
+            "n_train": int((df.split == "train").sum()),
+            "n_val": int((df.split == "val").sum()),
+            "n_test": int((df.split == "test").sum()),
+            "per_head": {
+                name: {
+                    "metric_kind": (
+                        "rmse" if specs[name]["head_type"] == "regression_vector"
+                        else "f1" if specs[name]["head_type"] == "multilabel"
+                        else "acc"
+                    ),
+                    "score": float(mval),
+                    "head_type": specs[name]["head_type"],
+                    "head_size": specs[name]["size"],
+                }
+                for name, mval in test_metrics.items()
+            },
+        }
+        args.save_metrics.parent.mkdir(exist_ok=True)
+        args.save_metrics.write_text(json.dumps(out, indent=2))
+        print(f"\nwrote test metrics to {args.save_metrics}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,251 @@
+{
+  "schema_version": "0.1.0",
+  "last_updated": "2026-05-28",
+  "notes": [
+    "Curated from the live citation audit (CITATION_AUDIT.md) + LIVE_SEARCH_2026-05-28.md.",
+    "Many prior methods report on incompatible test sets / metrics. Each entry records",
+    "what the prior paper itself reports, plus a notes field explaining how directly",
+    "comparable it is to microbe-foundation's family-held-out evaluation.",
+    "'metric_kind' values: acc | f1 | rmse | auroc | other"
+  ],
+  "comparators": {
+    "temperature_class": [
+      {
+        "method": "Engqvist 2018",
+        "cite": "engqvist2018temperature",
+        "metric_kind": "rmse",
+        "score": 5.4,
+        "score_units": "degC",
+        "evaluation": "leave-one-out on ~21k genomes, regression",
+        "directly_comparable": false,
+        "notes": "RMSE on continuous OGT; we use 5-class accuracy. Convert via class bin width."
+      },
+      {
+        "method": "Tome (Li & Engqvist 2019)",
+        "cite": "li2019tome",
+        "metric_kind": "rmse",
+        "score": 6.0,
+        "score_units": "degC",
+        "evaluation": "protein-level OGT, aggregated to organism via mean",
+        "directly_comparable": false,
+        "notes": "Protein-level model; organism-level numbers approximate."
+      },
+      {
+        "method": "Liu 2025 BMC Genomics",
+        "cite": "liu2025ogt",
+        "metric_kind": "rmse",
+        "score": null,
+        "score_units": "degC",
+        "evaluation": "protein-domain features, regression",
+        "directly_comparable": false,
+        "notes": "Score TBD — paper accessible but exact RMSE not extracted by audit."
+      }
+    ],
+    "ph_class": [
+      {
+        "method": "Ramoneda 2023",
+        "cite": "ramoneda2023ph",
+        "metric_kind": "auroc",
+        "score": null,
+        "score_units": "",
+        "evaluation": "56-gene logistic on ~1470 samples",
+        "directly_comparable": false,
+        "notes": "Reports AUROC ~0.85-0.9 per their abstract; binned-class accuracy not directly reported."
+      }
+    ],
+    "oxygen_tolerance": [
+      {
+        "method": "Wan 2025 Genomics",
+        "cite": "wan2025oxygen",
+        "metric_kind": "acc",
+        "score": null,
+        "score_units": "",
+        "evaluation": "per-genome oxygen preference, multi-class",
+        "directly_comparable": true,
+        "notes": "Direct comparator. Exact accuracy TBD from paper."
+      },
+      {
+        "method": "Koblitz 2025 (Commun Biol)",
+        "cite": "koblitz2025bacdiveml",
+        "metric_kind": "f1",
+        "score": null,
+        "score_units": "",
+        "evaluation": "RF on Pfam features, 8405 data points",
+        "directly_comparable": true,
+        "notes": "Per-trait RF baseline from BacDive curators; this is the score microbe-foundation must beat."
+      }
+    ],
+    "gram_stain": [
+      {
+        "method": "Koblitz 2025",
+        "cite": "koblitz2025bacdiveml",
+        "metric_kind": "f1",
+        "score": null,
+        "score_units": "",
+        "evaluation": "RF on Pfam features, ~17% of BacDive labeled",
+        "directly_comparable": true,
+        "notes": "Direct per-trait baseline. F1 TBD from paper."
+      },
+      {
+        "method": "Traitar 2016",
+        "cite": "weimann2016traitar",
+        "metric_kind": "f1",
+        "score": 0.96,
+        "score_units": "",
+        "evaluation": "per-trait SVM on Pfam features",
+        "directly_comparable": true,
+        "notes": "Gram stain is among Traitar's strongest heads."
+      },
+      {
+        "method": "Brbic 2016",
+        "cite": "brbic2016landscape",
+        "metric_kind": "auroc",
+        "score": 0.99,
+        "score_units": "",
+        "evaluation": "phylogeny-aware split, RF on Pfam",
+        "directly_comparable": true,
+        "notes": "Essentially solved on phylogenetically-stratified data."
+      }
+    ],
+    "motility": [
+      {
+        "method": "Koblitz 2025",
+        "cite": "koblitz2025bacdiveml",
+        "metric_kind": "f1",
+        "score": null,
+        "score_units": "",
+        "evaluation": "RF on 7090 strains",
+        "directly_comparable": true,
+        "notes": "Direct comparator. F1 TBD."
+      },
+      {
+        "method": "Traitar 2016",
+        "cite": "weimann2016traitar",
+        "metric_kind": "f1",
+        "score": 0.86,
+        "score_units": "",
+        "evaluation": "per-trait SVM",
+        "directly_comparable": true
+      }
+    ],
+    "sporulation": [
+      {
+        "method": "Galperin et al. 2012",
+        "cite": "galperin2012sporulation",
+        "metric_kind": "other",
+        "score": null,
+        "score_units": "",
+        "evaluation": "minimal-set-of-sporulation-genes",
+        "directly_comparable": false,
+        "notes": "Rule-based; reports recall on known sporeformers ~95%."
+      },
+      {
+        "method": "Koblitz 2025",
+        "cite": "koblitz2025bacdiveml",
+        "metric_kind": "f1",
+        "score": null,
+        "score_units": "",
+        "evaluation": "RF",
+        "directly_comparable": true
+      },
+      {
+        "method": "Traitar 2016",
+        "cite": "weimann2016traitar",
+        "metric_kind": "f1",
+        "score": 0.93,
+        "score_units": "",
+        "evaluation": "per-trait SVM",
+        "directly_comparable": true
+      }
+    ],
+    "amr_phenotype": [
+      {
+        "method": "CARD/RGI 2023",
+        "cite": "alcock2023card",
+        "metric_kind": "other",
+        "score": null,
+        "score_units": "",
+        "evaluation": "gene-presence matched to drug class",
+        "directly_comparable": false,
+        "notes": "Reference baseline. Gene-presence != MIC; we predict per-class binary phenotype."
+      },
+      {
+        "method": "AMRFinderPlus 2021",
+        "cite": "feldgarden2021amrfinderplus",
+        "metric_kind": "f1",
+        "score": null,
+        "score_units": "",
+        "evaluation": "NCBI's standard AMR caller",
+        "directly_comparable": false
+      },
+      {
+        "method": "DeepARG 2018",
+        "cite": "arangoargoty2018deeparg",
+        "metric_kind": "f1",
+        "score": 0.80,
+        "score_units": "",
+        "evaluation": "per-drug-class DL classifier on reads",
+        "directly_comparable": false,
+        "notes": "Reads-based, not genome-pheno; cite as ML peer."
+      }
+    ],
+    "carbon_utilization": [
+      {
+        "method": "GapMind 2022",
+        "cite": "price2022gapmindcarbon",
+        "metric_kind": "other",
+        "score": null,
+        "score_units": "",
+        "evaluation": "mechanistic pathway completion + curated rules",
+        "directly_comparable": false,
+        "notes": "Mechanistic, not ML; reports per-substrate yes/no confidence with high precision."
+      }
+    ],
+    "cultivation_medium": [
+      {
+        "method": "KOMODO 2015",
+        "cite": "oberhardt2015komodo",
+        "metric_kind": "other",
+        "score": null,
+        "score_units": "",
+        "evaluation": "16S nearest-neighbor in medium-strain bipartite graph",
+        "directly_comparable": false,
+        "notes": "Only published predictor in this space; not multi-label F1."
+      },
+      {
+        "method": "microbe-model v0 (this team)",
+        "cite": "",
+        "metric_kind": "f1",
+        "score": null,
+        "score_units": "",
+        "evaluation": "ESM-2 + XGBoost on MediaDive-linked strains",
+        "directly_comparable": true,
+        "notes": "Our prior single-task model; load from microbe-model artifacts/."
+      }
+    ],
+    "pathogenicity_human": [
+      {
+        "method": "PathogenFinder 2013",
+        "cite": "cosentino2013pathogenfinder",
+        "metric_kind": "acc",
+        "score": 0.88,
+        "score_units": "",
+        "evaluation": "human pathogenic vs non-pathogenic, 528 genomes",
+        "directly_comparable": true,
+        "notes": "Per-genome binary; our split uses ~14k strains with BSL-derived negatives."
+      }
+    ],
+    "fatty_acid_profile": [
+      {
+        "method": "(none — literature white-space)",
+        "cite": "",
+        "metric_kind": "rmse",
+        "score": null,
+        "score_units": "",
+        "evaluation": "",
+        "directly_comparable": false,
+        "notes": "Live-search confirmed: zero papers predict FAME composition from genome. microbe-foundation establishes the baseline."
+      }
+    ]
+  }
+}

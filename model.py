@@ -603,6 +603,9 @@ def main() -> None:
                              "heads alone and only weights the very skewed ones.")
     parser.add_argument("--scheduler", choices=["none", "cosine"], default="none",
                         help="Optimizer LR schedule. cosine = warmup-then-decay, helps with longer training.")
+    parser.add_argument("--single-task", type=str, default="",
+                        help="If set, train only the named head (all other heads dropped). "
+                             "Useful for ablations: does multi-task interference hurt this trait?")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -632,6 +635,14 @@ def main() -> None:
         print(f"  using RANDOM features [{features.shape[0]}, {features.shape[1]}] (smoke test)")
 
     labels, masks, specs = prepare_labels(df, vocab, schema)
+    if args.single_task:
+        if args.single_task not in specs:
+            sys.exit(f"--single-task '{args.single_task}' is not a known head. "
+                     f"Available: {sorted(specs.keys())}")
+        specs = {args.single_task: specs[args.single_task]}
+        labels = {args.single_task: labels[args.single_task]}
+        masks = {args.single_task: masks[args.single_task]}
+        print(f"  single-task mode: only training head '{args.single_task}'")
     print(f"  built {len(specs)} heads:")
     for name, spec in specs.items():
         print(f"    {name:<24} {spec['head_type']:<18} size={spec['size']}")

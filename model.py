@@ -226,14 +226,22 @@ def compute_class_weights(
     masks: dict[str, torch.Tensor],
     specs: dict[str, dict],
     train_idx: torch.Tensor,
+    threshold: float = 0.0,
+    verbose: bool = False,
 ) -> dict[str, torch.Tensor]:
     """Compute per-head loss-balancing weights from the training subset only.
 
-    binary: pos_weight scalar (neg/pos), clamped to [1, 50] to avoid blow-up
-            on heads with <2% positives.
-    multiclass: per-class weight vector = total / (K * count_c).
-    multilabel: per-label pos_weight vector (neg_per_label / pos_per_label).
-    regression_vector: None (no weighting).
+    Only heads whose imbalance ratio exceeds `threshold` get weights; the rest
+    fall back to plain unweighted loss. Imbalance ratio is defined per head:
+      binary    : max(pos, neg) / max(min(pos, neg), 1)
+      multiclass: max class count / max(min nonzero class count, 1)
+      multilabel: median of (neg/pos) over labels with pos > 0
+
+    Weights:
+      binary    : scalar pos_weight = neg/pos, clamped to [1, 50]
+      multiclass: per-class weight = total / (K * count_c), capped at 50
+      multilabel: per-label pos_weight = neg/pos per label, clamped to [1, 50]
+      regression_vector: no weighting
     """
     out: dict[str, torch.Tensor] = {}
     for name, spec in specs.items():
@@ -247,8 +255,15 @@ def compute_class_weights(
                 continue
             pos = ((y == 1) & valid).sum().clamp(min=1).float()
             neg = ((y == 0) & valid).sum().clamp(min=1).float()
-            pw = (neg / pos).clamp(min=1.0, max=50.0)
-            out[name] = pw  # scalar
+            ratio = (torch.maximum(pos, neg) / torch.minimum(pos, neg).clamp(min=1)).item()
+            if ratio < threshold:
+                if verbose:
+                    print(f"    {name:<24}  binary  ratio={ratio:.2f}  -> skip (< {threshold})")
+                continue
+            pw = (neg / pos).clamp(min=1.0, max=10.0)
+            out[name] = pw
+            if verbose:
+                print(f"    {name:<24}  binary  ratio={ratio:.2f}  pos_weight={pw.item():.2f}")
         elif h == "multiclass":
             valid = m > 0
             if valid.sum() == 0:
@@ -257,22 +272,42 @@ def compute_class_weights(
             counts = torch.zeros(k)
             for c in range(k):
                 counts[c] = ((y == c) & valid).sum()
+            nonzero = counts[counts > 0]
+            if len(nonzero) < 2:
+                continue
+            ratio = (nonzero.max() / nonzero.min().clamp(min=1)).item()
+            if ratio < threshold:
+                if verbose:
+                    print(f"    {name:<24}  multiclass  ratio={ratio:.2f}  -> skip")
+                continue
             total = counts.sum().clamp(min=1)
-            # inverse frequency: total / (K * count). Empty classes get weight=0.
             w = torch.zeros(k)
             seen = counts > 0
             w[seen] = total / (seen.sum().float() * counts[seen])
-            # Cap to avoid extreme weights from singleton classes
-            w = w.clamp(max=50.0)
+            w = w.clamp(max=10.0)
             out[name] = w
+            if verbose:
+                print(f"    {name:<24}  multiclass  ratio={ratio:.2f}  weights range "
+                      f"[{w[seen].min().item():.2f}, {w[seen].max().item():.2f}]")
         elif h == "multilabel":
             if m.sum() == 0:
                 continue
             pos_per_label = ((y == 1) & (m > 0)).sum(0).float()
             neg_per_label = ((y == 0) & (m > 0)).sum(0).float()
-            pw = (neg_per_label / pos_per_label.clamp(min=1)).clamp(min=1.0, max=50.0)
+            seen = pos_per_label > 0
+            if seen.sum() < 2:
+                continue
+            ratios = neg_per_label[seen] / pos_per_label[seen].clamp(min=1)
+            ratio = float(ratios.median().item())
+            if ratio < threshold:
+                if verbose:
+                    print(f"    {name:<24}  multilabel  median_ratio={ratio:.2f}  -> skip")
+                continue
+            pw = (neg_per_label / pos_per_label.clamp(min=1)).clamp(min=1.0, max=10.0)
             out[name] = pw
-        # regression_vector: no weighting
+            if verbose:
+                print(f"    {name:<24}  multilabel  median_ratio={ratio:.2f}  "
+                      f"pos_weight range [{pw[seen].min().item():.2f}, {pw[seen].max().item():.2f}]")
     return out
 
 
@@ -539,6 +574,11 @@ def main() -> None:
     parser.add_argument("--class-weights", action="store_true",
                         help="Balance loss by inverse class frequency on training labels. "
                              "Improves macro F1 on imbalanced heads at the cost of plain accuracy.")
+    parser.add_argument("--imbalance-threshold", type=float, default=0.0,
+                        help="Only apply class weighting to heads whose imbalance ratio "
+                             "(majority/minority) exceeds this. 0.0 = weight every head (default, "
+                             "matches the original --class-weights behavior). 10.0 leaves balanced "
+                             "heads alone and only weights the very skewed ones.")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -597,8 +637,12 @@ def main() -> None:
     class_weights = None
     if args.class_weights:
         train_idx = torch.tensor(splits["train"], dtype=torch.long)
-        class_weights = compute_class_weights(labels, masks, specs, train_idx)
-        print(f"\nclass-weighted loss enabled — weights computed for {len(class_weights)} heads")
+        print(f"\nclass-weighted loss enabled — imbalance threshold={args.imbalance_threshold}")
+        class_weights = compute_class_weights(
+            labels, masks, specs, train_idx,
+            threshold=args.imbalance_threshold, verbose=True,
+        )
+        print(f"  -> applied weights to {len(class_weights)} / {len(specs)} heads")
 
     print(f"\ntraining for {args.epochs} epochs...")
     train(model, loaders["train"], loaders.get("val"), specs, device, args.epochs, args.lr,

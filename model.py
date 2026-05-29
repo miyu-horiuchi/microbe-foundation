@@ -310,11 +310,16 @@ def collate(batch):
 # =============================================================================
 
 
-def run_eval(model, loader, specs, device) -> dict[str, float]:
-    """Compute per-head metric on a split."""
+def run_eval(model, loader, specs, device) -> dict[str, dict[str, float]]:
+    """Compute per-head metrics on a split.
+
+    Returns {head_name: {metric_kind: score, ...}}. binary/multiclass heads
+    emit both `acc` and `f1` (macro for multiclass; positive-class for binary).
+    Multilabel emits sample-averaged `f1`. Regression emits `rmse`.
+    """
     model.train(False)
-    head_metrics: dict[str, list[float]] = {}
-    head_counts: dict[str, int] = {}
+    # Accumulators per head — list of (pred, true, mask) tensors.
+    buf: dict[str, dict[str, list]] = {}
     with torch.no_grad():
         for feats, labels, masks in loader:
             feats = feats.to(device)
@@ -326,40 +331,88 @@ def run_eval(model, loader, specs, device) -> dict[str, float]:
                 m = masks[name].to(device)
                 if m.sum() == 0:
                     continue
-                if h == "binary":
-                    valid = m > 0
-                    p = (torch.sigmoid(pred[valid].squeeze(-1)) > 0.5).float()
-                    acc = (p == y[valid]).float().mean().item()
-                    head_metrics.setdefault(name, []).append(acc * int(valid.sum()))
-                    head_counts[name] = head_counts.get(name, 0) + int(valid.sum())
-                elif h == "multiclass":
-                    valid = m > 0
-                    p = pred[valid].argmax(-1)
-                    acc = (p == y[valid]).float().mean().item()
-                    head_metrics.setdefault(name, []).append(acc * int(valid.sum()))
-                    head_counts[name] = head_counts.get(name, 0) + int(valid.sum())
-                elif h == "multilabel":
-                    probs = torch.sigmoid(pred)
-                    preds_bin = (probs > 0.5).float()
-                    tp = ((preds_bin == 1) & (y == 1) & (m > 0)).float().sum(-1)
-                    fp = ((preds_bin == 1) & (y == 0) & (m > 0)).float().sum(-1)
-                    fn = ((preds_bin == 0) & (y == 1) & (m > 0)).float().sum(-1)
-                    f1 = 2 * tp / (2 * tp + fp + fn + 1e-8)
-                    sample_has = (m.sum(-1) > 0).float()
-                    head_metrics.setdefault(name, []).append((f1 * sample_has).sum().item())
-                    head_counts[name] = head_counts.get(name, 0) + int(sample_has.sum())
-                elif h == "regression_vector":
-                    err = ((pred - y) ** 2 * m).sum().item()
-                    head_metrics.setdefault(name, []).append(err)
-                    head_counts[name] = head_counts.get(name, 0) + int(m.sum())
-    out: dict[str, float] = {}
-    for name, sums in head_metrics.items():
-        denom = head_counts.get(name, 1)
-        if specs[name]["head_type"] == "regression_vector":
-            out[name] = (sum(sums) / max(denom, 1)) ** 0.5  # RMSE
-        else:
-            out[name] = sum(sums) / max(denom, 1)
+                b = buf.setdefault(name, {"pred": [], "y": [], "m": []})
+                b["pred"].append(pred.detach().cpu())
+                b["y"].append(y.detach().cpu())
+                b["m"].append(m.detach().cpu())
+
+    out: dict[str, dict[str, float]] = {}
+    for name, b in buf.items():
+        h = specs[name]["head_type"]
+        pred = torch.cat(b["pred"], dim=0)
+        y = torch.cat(b["y"], dim=0)
+        m = torch.cat(b["m"], dim=0)
+
+        if h == "binary":
+            valid = m > 0
+            p = (torch.sigmoid(pred[valid].squeeze(-1)) > 0.5).long()
+            t = y[valid].long()
+            acc = (p == t).float().mean().item()
+            tp = ((p == 1) & (t == 1)).sum().item()
+            fp = ((p == 1) & (t == 0)).sum().item()
+            fn = ((p == 0) & (t == 1)).sum().item()
+            f1 = 2 * tp / (2 * tp + fp + fn) if (2 * tp + fp + fn) > 0 else 0.0
+            out[name] = {"acc": acc, "f1": f1}
+
+        elif h == "multiclass":
+            valid = m > 0
+            p = pred[valid].argmax(-1).long()
+            t = y[valid].long()
+            acc = (p == t).float().mean().item()
+            k = specs[name]["size"]
+            f1s = []
+            for c in range(k):
+                tp = ((p == c) & (t == c)).sum().item()
+                fp = ((p == c) & (t != c)).sum().item()
+                fn = ((p != c) & (t == c)).sum().item()
+                if tp + fp + fn == 0:
+                    continue  # class absent from this split; skip
+                f1s.append(2 * tp / (2 * tp + fp + fn))
+            f1_macro = sum(f1s) / max(len(f1s), 1)
+            out[name] = {"acc": acc, "f1": f1_macro}
+
+        elif h == "multilabel":
+            probs = torch.sigmoid(pred)
+            preds_bin = (probs > 0.5).long()
+            yl = y.long()
+            tp_s = ((preds_bin == 1) & (yl == 1) & (m > 0)).float().sum(-1)
+            fp_s = ((preds_bin == 1) & (yl == 0) & (m > 0)).float().sum(-1)
+            fn_s = ((preds_bin == 0) & (yl == 1) & (m > 0)).float().sum(-1)
+            denom = 2 * tp_s + fp_s + fn_s
+            f1_sample = torch.where(denom > 0, 2 * tp_s / denom.clamp(min=1), torch.zeros_like(denom))
+            has = (m.sum(-1) > 0).float()
+            f1 = (f1_sample * has).sum().item() / max(has.sum().item(), 1)
+            # Macro F1 across labels: per-label TP/FP/FN summed across samples
+            tp_l = ((preds_bin == 1) & (yl == 1) & (m > 0)).float().sum(0)
+            fp_l = ((preds_bin == 1) & (yl == 0) & (m > 0)).float().sum(0)
+            fn_l = ((preds_bin == 0) & (yl == 1) & (m > 0)).float().sum(0)
+            denom_l = 2 * tp_l + fp_l + fn_l
+            f1_per_label = torch.where(denom_l > 0, 2 * tp_l / denom_l.clamp(min=1), torch.zeros_like(denom_l))
+            seen = denom_l > 0
+            f1_macro = f1_per_label[seen].mean().item() if seen.any() else 0.0
+            out[name] = {"f1": f1, "f1_macro": f1_macro}
+
+        elif h == "regression_vector":
+            sq = ((pred - y) ** 2 * m).sum().item()
+            denom = m.sum().item()
+            rmse = (sq / max(denom, 1)) ** 0.5
+            out[name] = {"rmse": rmse}
+
     return out
+
+
+def _primary_metric(head_type: str) -> str:
+    return {
+        "binary": "acc",
+        "multiclass": "acc",
+        "multilabel": "f1",
+        "regression_vector": "rmse",
+    }[head_type]
+
+
+def _avg_primary(metrics: dict[str, dict[str, float]], specs) -> float:
+    vals = [m[_primary_metric(specs[name]["head_type"])] for name, m in metrics.items()]
+    return sum(vals) / max(len(vals), 1)
 
 
 def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float):
@@ -383,7 +436,7 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
         train_loss = running / max(n_batches, 1)
         if val_loader is not None:
             val_metrics = run_eval(model, val_loader, specs, device)
-            avg_val = sum(val_metrics.values()) / max(len(val_metrics), 1)
+            avg_val = _avg_primary(val_metrics, specs)
             val_s = f"val_avg={avg_val:.4f}"
         else:
             val_s = "val=skipped(empty)"
@@ -471,14 +524,14 @@ def main() -> None:
     test_loader = loaders.get("test")
     if test_loader is None:
         print("\nno test split (sample too small) — skipping test eval")
-        test_metrics: dict[str, float] = {}
+        test_metrics: dict[str, dict[str, float]] = {}
     else:
         print(f"\nfinal test metrics:")
         test_metrics = run_eval(model, test_loader, specs, device)
-        for name, mval in sorted(test_metrics.items()):
+        for name, metric_dict in sorted(test_metrics.items()):
             kind = specs[name]["head_type"]
-            unit = "RMSE" if kind == "regression_vector" else ("F1" if kind == "multilabel" else "acc")
-            print(f"  {name:<24} {kind:<18} {unit}={mval:.4f}")
+            parts = " ".join(f"{k}={v:.4f}" for k, v in metric_dict.items())
+            print(f"  {name:<24} {kind:<18} {parts}")
 
     if args.save_metrics:
         out = {
@@ -492,16 +545,13 @@ def main() -> None:
             "n_test": int((df.split == "test").sum()),
             "per_head": {
                 name: {
-                    "metric_kind": (
-                        "rmse" if specs[name]["head_type"] == "regression_vector"
-                        else "f1" if specs[name]["head_type"] == "multilabel"
-                        else "acc"
-                    ),
-                    "score": float(mval),
+                    "metric_kind": _primary_metric(specs[name]["head_type"]),
+                    "score": float(metric_dict[_primary_metric(specs[name]["head_type"])]),
+                    "metrics": {k: float(v) for k, v in metric_dict.items()},
                     "head_type": specs[name]["head_type"],
                     "head_size": specs[name]["size"],
                 }
-                for name, mval in test_metrics.items()
+                for name, metric_dict in test_metrics.items()
             },
         }
         args.save_metrics.parent.mkdir(exist_ok=True)

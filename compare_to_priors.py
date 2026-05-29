@@ -84,8 +84,14 @@ def main() -> None:
             row = [f"`{trait}`", prior["metric_kind"]]
             for run in our_runs:
                 head = run.get("per_head", {}).get(trait)
-                if head and head["metric_kind"] == prior["metric_kind"]:
-                    row.append(fmt(head["score"], head["metric_kind"]))
+                if not head:
+                    row.append("—")
+                    continue
+                # Prefer new `metrics` dict (multi-metric output) if present;
+                # fall back to legacy single-metric `metric_kind`/`score`.
+                metrics = head.get("metrics") or {head["metric_kind"]: head["score"]}
+                if prior["metric_kind"] in metrics:
+                    row.append(fmt(metrics[prior["metric_kind"]], prior["metric_kind"]))
                 else:
                     row.append("—")
             row.append(prior["method"])

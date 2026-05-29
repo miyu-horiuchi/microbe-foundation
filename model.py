@@ -221,20 +221,79 @@ class MicrobeFoundationModel(nn.Module):
 # =============================================================================
 
 
+def compute_class_weights(
+    labels: dict[str, torch.Tensor],
+    masks: dict[str, torch.Tensor],
+    specs: dict[str, dict],
+    train_idx: torch.Tensor,
+) -> dict[str, torch.Tensor]:
+    """Compute per-head loss-balancing weights from the training subset only.
+
+    binary: pos_weight scalar (neg/pos), clamped to [1, 50] to avoid blow-up
+            on heads with <2% positives.
+    multiclass: per-class weight vector = total / (K * count_c).
+    multilabel: per-label pos_weight vector (neg_per_label / pos_per_label).
+    regression_vector: None (no weighting).
+    """
+    out: dict[str, torch.Tensor] = {}
+    for name, spec in specs.items():
+        h = spec["head_type"]
+        y = labels[name][train_idx]
+        m = masks[name][train_idx]
+
+        if h == "binary":
+            valid = m > 0
+            if valid.sum() == 0:
+                continue
+            pos = ((y == 1) & valid).sum().clamp(min=1).float()
+            neg = ((y == 0) & valid).sum().clamp(min=1).float()
+            pw = (neg / pos).clamp(min=1.0, max=50.0)
+            out[name] = pw  # scalar
+        elif h == "multiclass":
+            valid = m > 0
+            if valid.sum() == 0:
+                continue
+            k = spec["size"]
+            counts = torch.zeros(k)
+            for c in range(k):
+                counts[c] = ((y == c) & valid).sum()
+            total = counts.sum().clamp(min=1)
+            # inverse frequency: total / (K * count). Empty classes get weight=0.
+            w = torch.zeros(k)
+            seen = counts > 0
+            w[seen] = total / (seen.sum().float() * counts[seen])
+            # Cap to avoid extreme weights from singleton classes
+            w = w.clamp(max=50.0)
+            out[name] = w
+        elif h == "multilabel":
+            if m.sum() == 0:
+                continue
+            pos_per_label = ((y == 1) & (m > 0)).sum(0).float()
+            neg_per_label = ((y == 0) & (m > 0)).sum(0).float()
+            pw = (neg_per_label / pos_per_label.clamp(min=1)).clamp(min=1.0, max=50.0)
+            out[name] = pw
+        # regression_vector: no weighting
+    return out
+
+
 def masked_loss(
     preds: dict[str, torch.Tensor],
     labels: dict[str, torch.Tensor],
     masks: dict[str, torch.Tensor],
     specs: dict[str, dict],
+    weights: dict[str, torch.Tensor] | None = None,
 ) -> tuple[torch.Tensor, dict[str, float]]:
     """
     Per-head masked loss, equally weighted across heads. Heads with zero
     labeled samples in the batch contribute zero loss and are skipped.
+    Optional `weights` carries class-balancing weights from
+    compute_class_weights().
     """
     device = next(iter(preds.values())).device
     total = torch.tensor(0.0, device=device)
     n_active = 0
     per_head: dict[str, float] = {}
+    weights = weights or {}
 
     for name, pred in preds.items():
         if name not in labels:
@@ -248,16 +307,29 @@ def masked_loss(
             valid = m > 0
             if valid.sum() == 0:
                 continue
-            loss = F.binary_cross_entropy_with_logits(pred[valid].squeeze(-1), y[valid])
+            pw = weights.get(name)
+            if pw is not None:
+                pw = pw.to(device)
+            loss = F.binary_cross_entropy_with_logits(
+                pred[valid].squeeze(-1), y[valid], pos_weight=pw,
+            )
         elif h == "multiclass":
             valid = m > 0
             if valid.sum() == 0:
                 continue
-            loss = F.cross_entropy(pred[valid], y[valid])
+            w = weights.get(name)
+            if w is not None:
+                w = w.to(device)
+            loss = F.cross_entropy(pred[valid], y[valid], weight=w)
         elif h == "multilabel":
             if m.sum() == 0:
                 continue
-            elem_loss = F.binary_cross_entropy_with_logits(pred, y, reduction="none")
+            pw = weights.get(name)
+            if pw is not None:
+                pw = pw.to(device)
+            elem_loss = F.binary_cross_entropy_with_logits(
+                pred, y, reduction="none", pos_weight=pw,
+            )
             loss = (elem_loss * m).sum() / m.sum().clamp(min=1.0)
         elif h == "regression_vector":
             if m.sum() == 0:
@@ -415,7 +487,8 @@ def _avg_primary(metrics: dict[str, dict[str, float]], specs) -> float:
     return sum(vals) / max(len(vals), 1)
 
 
-def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float):
+def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float,
+          class_weights: dict | None = None):
     """val_loader may be None when the split has zero validation strains (small samples)."""
     optim = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     val_metrics: dict[str, float] = {}
@@ -427,7 +500,7 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
         for feats, labels, masks in train_loader:
             feats = feats.to(device)
             preds = model(feats)
-            loss, _ = masked_loss(preds, labels, masks, specs)
+            loss, _ = masked_loss(preds, labels, masks, specs, weights=class_weights)
             optim.zero_grad()
             loss.backward()
             optim.step()
@@ -463,6 +536,9 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save-metrics", type=Path, default=None, help="Write final test metrics to this JSON path")
     parser.add_argument("--run-name", type=str, default="", help="Tag for the saved metrics (e.g., 'esm2-35M-family')")
+    parser.add_argument("--class-weights", action="store_true",
+                        help="Balance loss by inverse class frequency on training labels. "
+                             "Improves macro F1 on imbalanced heads at the cost of plain accuracy.")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -518,8 +594,15 @@ def main() -> None:
     n_params = sum(p.numel() for p in model.parameters())
     print(f"\nmodel: {n_params:,} parameters  (device={device})")
 
+    class_weights = None
+    if args.class_weights:
+        train_idx = torch.tensor(splits["train"], dtype=torch.long)
+        class_weights = compute_class_weights(labels, masks, specs, train_idx)
+        print(f"\nclass-weighted loss enabled — weights computed for {len(class_weights)} heads")
+
     print(f"\ntraining for {args.epochs} epochs...")
-    train(model, loaders["train"], loaders.get("val"), specs, device, args.epochs, args.lr)
+    train(model, loaders["train"], loaders.get("val"), specs, device, args.epochs, args.lr,
+          class_weights=class_weights)
 
     test_loader = loaders.get("test")
     if test_loader is None:

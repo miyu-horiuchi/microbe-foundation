@@ -60,3 +60,4 @@ paper/tables/07_leaderboard.md
 .env
 .env.local
 *.key
+pfam_db/

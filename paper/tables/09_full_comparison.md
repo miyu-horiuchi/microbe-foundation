@@ -1,6 +1,6 @@
 # Table 9 — Full per-trait comparison
 
-Best score across all 14 model variants in `runs/` for each metric the head emits, vs every directly-comparable prior published number. RMSE is lower-is-better; everything else is higher-is-better.
+Best score across all 20 model variants in `runs/` for each metric the head emits, vs every directly-comparable prior published number. RMSE is lower-is-better; everything else is higher-is-better.
 
 Legend: **⬆** = we beat the listed prior · **⬇** = we lose to the listed prior · **~** = prior method exists but no score published · **🆕** = no directly-comparable prior exists
 
@@ -12,18 +12,18 @@ Legend: **⬆** = we beat the listed prior · **⬇** = we lose to the listed pr
 | `biosafety_level` | f1 | **0.606** | `esm2-150M-family` | — | — | 🆕 |
 | `carbon_utilization` | f1 | **0.577** | `esm2-150M-species-bal` | — | — | 🆕 |
 | `carbon_utilization` | f1_macro | **0.534** | `esm2-150M-species-bal` | — | — | 🆕 |
-| `catalase` | acc | **0.906** | `esm2-150M-species` | — | — | 🆕 |
-| `catalase` | f1 | **0.947** | `esm2-150M-species` | — | — | 🆕 |
+| `catalase` | acc | **0.910** | `esm2-150M-200p-species-sel` | — | — | 🆕 |
+| `catalase` | f1 | **0.949** | `esm2-150M-200p-species-sel` | — | — | 🆕 |
 | `cell_shape` | acc | **0.842** | `chance-majority-family` | — | — | 🆕 |
 | `cell_shape` | f1 | **0.276** | `esm2-150M-species-h1024` | — | — | 🆕 |
 | `country` | acc | **0.227** | `esm2-150M-genus` | — | — | 🆕 |
 | `country` | f1 | **0.024** | `esm2-150M-species-h1024` | — | — | 🆕 |
 | `cultivation_medium` | f1 | **0.427** | `esm2-150M-species-h1024` | microbe-model v0 (this team) | — | ~ |
 | `cytochrome_oxidase` | acc | **0.843** | `esm2-150M-family-h1024` | — | — | 🆕 |
-| `cytochrome_oxidase` | f1 | **0.889** | `esm2-150M-family-bal` | — | — | 🆕 |
+| `cytochrome_oxidase` | f1 | **0.890** | `esm2-150M-200p-family-sel` | — | — | 🆕 |
 | `fatty_acid_profile` | rmse | **0.092** | `esm2-150M-genus-h1024` | — | — | 🆕 |
-| `gram_stain` | f1 | **0.656** | `esm2-150M-species-sel` | Koblitz 2025 | — | ~ |
-| `gram_stain` | f1 | **0.656** | `esm2-150M-species-sel` | Traitar 2016 | 0.960 | ⬇ |
+| `gram_stain` | f1 | **0.679** | `esm2-150M-200p-species-sel` | Koblitz 2025 | — | ~ |
+| `gram_stain` | f1 | **0.679** | `esm2-150M-200p-species-sel` | Traitar 2016 | 0.960 | ⬇ |
 | `gram_stain` | auroc | — | _no run_ | Brbic 2016 | 0.990 | (metric not tracked) |
 | `halophily` | acc | **0.680** | `esm2-150M-genus` | — | — | 🆕 |
 | `halophily` | f1 | **0.464** | `esm2-150M-species-h1024` | — | — | 🆕 |
@@ -40,10 +40,10 @@ Legend: **⬆** = we beat the listed prior · **⬇** = we lose to the listed pr
 | `pathogenicity_human` | acc | **0.936** | `esm2-150M-genus` | PathogenFinder 2013 | 0.880 | ⬆ |
 | `ph_class` | acc | **0.650** | `esm2-150M-genus` | — | — | 🆕 |
 | `ph_class` | f1 | **0.564** | `esm2-150M-species` | — | — | 🆕 |
-| `pigmentation` | acc | **0.735** | `chance-majority-family` | — | — | 🆕 |
-| `pigmentation` | f1 | **0.847** | `chance-majority-family` | — | — | 🆕 |
-| `sporulation` | f1 | **0.907** | `esm2-150M-species` | Koblitz 2025 | — | ~ |
-| `sporulation` | f1 | **0.907** | `esm2-150M-species` | Traitar 2016 | 0.930 | ⬇ |
+| `pigmentation` | acc | **0.741** | `esm2-150M-200p-family-sel` | — | — | 🆕 |
+| `pigmentation` | f1 | **0.849** | `esm2-150M-200p-family-sel` | — | — | 🆕 |
+| `sporulation` | f1 | **0.914** | `esm2-150M-200p-species-sel` | Koblitz 2025 | — | ~ |
+| `sporulation` | f1 | **0.914** | `esm2-150M-200p-species-sel` | Traitar 2016 | 0.930 | ⬇ |
 | `temperature_class` | acc | **0.960** | `esm2-150M-species` | — | — | 🆕 |
 | `temperature_class` | f1 | **0.509** | `esm2-150M-genus` | — | — | 🆕 |
 

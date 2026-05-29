@@ -4,19 +4,19 @@ _Comparators curated in `prior_numbers.json`; comparability flagged per row._
 
 ## A. Directly comparable
 
-| Trait | Metric | esm2-150M-family-sel | Prior method | Prior score | Cite |
+| Trait | Metric | esm2-150M-family-h1024 | Prior method | Prior score | Cite |
 |---|---|---|---|---|---|
-| `cultivation_medium` | f1 | 0.3324 | microbe-model v0 (this team) | — | — |
-| `gram_stain` | f1 | 0.6299 | Koblitz 2025 | — | [@koblitz2025bacdiveml] |
-| `gram_stain` | f1 | 0.6299 | Traitar 2016 | 0.9600 | [@weimann2016traitar] |
+| `cultivation_medium` | f1 | 0.3456 | microbe-model v0 (this team) | — | — |
+| `gram_stain` | f1 | 0.6280 | Koblitz 2025 | — | [@koblitz2025bacdiveml] |
+| `gram_stain` | f1 | 0.6280 | Traitar 2016 | 0.9600 | [@weimann2016traitar] |
 | `gram_stain` | auroc | — | Brbic 2016 | 0.9900 | [@brbic2016landscape] |
-| `motility` | f1 | 0.5557 | Koblitz 2025 | — | [@koblitz2025bacdiveml] |
-| `motility` | f1 | 0.5557 | Traitar 2016 | 0.8600 | [@weimann2016traitar] |
-| `oxygen_tolerance` | acc | 0.6018 | Wan 2025 Genomics | — | [@wan2025oxygen] |
-| `oxygen_tolerance` | f1 | 0.2821 | Koblitz 2025 (Commun Biol) | — | [@koblitz2025bacdiveml] |
-| `pathogenicity_human` | acc | 0.8128 | PathogenFinder 2013 | 0.8800 | [@cosentino2013pathogenfinder] |
-| `sporulation` | f1 | 0.7765 | Koblitz 2025 | — | [@koblitz2025bacdiveml] |
-| `sporulation` | f1 | 0.7765 | Traitar 2016 | 0.9300 | [@weimann2016traitar] |
+| `motility` | f1 | 0.5253 | Koblitz 2025 | — | [@koblitz2025bacdiveml] |
+| `motility` | f1 | 0.5253 | Traitar 2016 | 0.8600 | [@weimann2016traitar] |
+| `oxygen_tolerance` | acc | 0.5560 | Wan 2025 Genomics | — | [@wan2025oxygen] |
+| `oxygen_tolerance` | f1 | 0.2574 | Koblitz 2025 (Commun Biol) | — | [@koblitz2025bacdiveml] |
+| `pathogenicity_human` | acc | 0.8401 | PathogenFinder 2013 | 0.8800 | [@cosentino2013pathogenfinder] |
+| `sporulation` | f1 | 0.8128 | Koblitz 2025 | — | [@koblitz2025bacdiveml] |
+| `sporulation` | f1 | 0.8128 | Traitar 2016 | 0.9300 | [@weimann2016traitar] |
 
 ## B. Context (different metric / evaluation — not apples-to-apples)
 

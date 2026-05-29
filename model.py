@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from pathlib import Path
@@ -523,9 +524,26 @@ def _avg_primary(metrics: dict[str, dict[str, float]], specs) -> float:
 
 
 def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float,
-          class_weights: dict | None = None):
-    """val_loader may be None when the split has zero validation strains (small samples)."""
+          class_weights: dict | None = None, scheduler: str = "none",
+          warmup_frac: float = 0.05):
+    """val_loader may be None when the split has zero validation strains (small samples).
+
+    scheduler: 'none' = constant lr; 'cosine' = linear warmup to `lr` over the
+    first `warmup_frac` of total batches, then cosine decay to 0.
+    """
     optim = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    total_steps = epochs * len(train_loader)
+    warmup_steps = max(1, int(total_steps * warmup_frac)) if scheduler == "cosine" else 0
+
+    def lr_at(step: int) -> float:
+        if scheduler != "cosine":
+            return lr
+        if step < warmup_steps:
+            return lr * step / max(warmup_steps, 1)
+        progress = (step - warmup_steps) / max(total_steps - warmup_steps, 1)
+        return lr * 0.5 * (1 + math.cos(math.pi * progress))
+
+    step = 0
     val_metrics: dict[str, float] = {}
     for epoch in range(1, epochs + 1):
         model.train(True)
@@ -533,6 +551,8 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
         running = 0.0
         n_batches = 0
         for feats, labels, masks in train_loader:
+            for g in optim.param_groups:
+                g["lr"] = lr_at(step)
             feats = feats.to(device)
             preds = model(feats)
             loss, _ = masked_loss(preds, labels, masks, specs, weights=class_weights)
@@ -541,6 +561,7 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
             optim.step()
             running += loss.item()
             n_batches += 1
+            step += 1
         train_loss = running / max(n_batches, 1)
         if val_loader is not None:
             val_metrics = run_eval(model, val_loader, specs, device)
@@ -549,7 +570,8 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
         else:
             val_s = "val=skipped(empty)"
         elapsed = time.time() - t0
-        print(f"  epoch {epoch:>3}  train_loss={train_loss:.4f}  {val_s}  ({elapsed:.1f}s)")
+        current_lr = optim.param_groups[0]["lr"]
+        print(f"  epoch {epoch:>3}  lr={current_lr:.2e}  train_loss={train_loss:.4f}  {val_s}  ({elapsed:.1f}s)")
     return val_metrics
 
 
@@ -579,6 +601,8 @@ def main() -> None:
                              "(majority/minority) exceeds this. 0.0 = weight every head (default, "
                              "matches the original --class-weights behavior). 10.0 leaves balanced "
                              "heads alone and only weights the very skewed ones.")
+    parser.add_argument("--scheduler", choices=["none", "cosine"], default="none",
+                        help="Optimizer LR schedule. cosine = warmup-then-decay, helps with longer training.")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -644,9 +668,9 @@ def main() -> None:
         )
         print(f"  -> applied weights to {len(class_weights)} / {len(specs)} heads")
 
-    print(f"\ntraining for {args.epochs} epochs...")
+    print(f"\ntraining for {args.epochs} epochs (scheduler={args.scheduler})...")
     train(model, loaders["train"], loaders.get("val"), specs, device, args.epochs, args.lr,
-          class_weights=class_weights)
+          class_weights=class_weights, scheduler=args.scheduler)
 
     test_loader = loaders.get("test")
     if test_loader is None:

@@ -229,7 +229,11 @@ def main(limit: int = 0, batch_size: int = 100, min_freq: float = 0.01):
     import pandas as pd
     import numpy as np
 
-    ncbi_key = os.environ.get("NCBI_API_KEY", "ca856b6c99014a67eff3c662db107a46ed08")
+    ncbi_key = os.environ.get("NCBI_API_KEY", "")
+    if not ncbi_key:
+        print("WARNING: NCBI_API_KEY not set — NCBI fetches will be rate-limited 3x.")
+        print("  Get a free key at https://www.ncbi.nlm.nih.gov/account/settings and")
+        print("  re-run with: NCBI_API_KEY=... modal run modal_eggnog.py")
 
     acc_path = ROOT / "data" / "genome_accessions.tsv"
     df = pd.read_csv(acc_path, sep="\t")

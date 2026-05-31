@@ -36,13 +36,12 @@ ROOT = Path(__file__).parent
 # ---------------------------------------------------------------------------
 
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install("diamond-aligner", "hmmer", "wget", "git", "build-essential")
-    # Install eggnog-mapper from its GitHub master branch — the PyPI version
-    # is stuck on 2.0.6 which pins biopython==1.76 (incompatible with everything
-    # else). Master is 2.1.x and works with modern biopython.
+    # Python 3.10 because eggnog-mapper 2.1.13's setup.py pins biopython==1.76,
+    # which has C extensions that don't compile on Python 3.11+.
     .pip_install(
-        "eggnog-mapper @ git+https://github.com/eggnogdb/eggnog-mapper.git@2.1.13",
+        "eggnog-mapper==2.1.13",
         "pyrodigal",
         "requests",
         "pandas",
@@ -111,53 +110,66 @@ def download_db():
 # Stage 2: per-batch worker — fetch + predict + emapper
 # ---------------------------------------------------------------------------
 
-@app.function(
-    volumes={DB_DIR: db_volume},
-    cpu=8,
-    memory=16384,
-    timeout=60 * 60,        # 1 hr per batch
-    retries=2,
-)
-def process_batch(pairs: list[tuple[int, str]], eval_cutoff: float = 1e-5,
-                  ncbi_api_key: str = "") -> dict:
-    """One worker processes a batch of (bid, accession) genomes end-to-end:
-       fetch + pyrodigal + emapper. Returns dict {bid -> sorted list of OG IDs}.
-    """
-    import os, subprocess, tempfile, time, sys
+def _fetch_predict_one(bid_acc):
+    """Worker function — must be module-level so ProcessPoolExecutor can pickle it."""
+    import sys
     sys.path.insert(0, "/root")
-    if ncbi_api_key:
-        os.environ["NCBI_API_KEY"] = ncbi_api_key
     from microbe_model.features.genome import predict_genes
     from microbe_model.pipeline import _fetch_fasta_bytes
+    bid, acc = bid_acc
+    try:
+        contigs = _fetch_fasta_bytes(acc)
+    except Exception:
+        return (bid, None, "FETCH_FAIL")
+    if not contigs:
+        return (bid, None, "FETCH_FAIL")
+    try:
+        proteins, _cds, _nt = predict_genes(contigs)
+    except Exception as e:
+        return (bid, None, f"PRED_FAIL:{type(e).__name__}")
+    if not proteins:
+        return (bid, None, "PRED_FAIL:empty")
+    return (bid, proteins, "OK")
+
+
+@app.function(
+    volumes={DB_DIR: db_volume},
+    secrets=[modal.Secret.from_name("ncbi-api-key")],  # exports NCBI_API_KEY in container env
+    cpu=16,
+    memory=24576,
+    timeout=60 * 60,        # 1 hr per batch
+    retries=2,
+    max_containers=300,     # fan out as wide as Modal will let us
+)
+def process_batch(pairs: list[tuple[int, str]], eval_cutoff: float = 1e-5) -> dict:
+    """One worker processes a batch of (bid, accession) genomes end-to-end:
+       parallel fetch + pyrodigal + emapper. Returns {bid -> list of OG IDs}.
+    """
+    import os, subprocess, tempfile, time, sys
+    from concurrent.futures import ProcessPoolExecutor
+    sys.path.insert(0, "/root")
+    if not os.environ.get("NCBI_API_KEY"):
+        print("WARNING: NCBI_API_KEY not in container env (Modal Secret missing?)", flush=True)
 
     t0 = time.time()
     work = tempfile.mkdtemp()
     faa_path = os.path.join(work, "batch.faa")
+
+    # Parallel fetch + pyrodigal (12 worker processes per container).
     n_ok = n_ff = n_pf = 0
-    with open(faa_path, "w") as out_fh:
-        for bid, acc in pairs:
-            try:
-                contigs = _fetch_fasta_bytes(acc)
-            except Exception:
+    with open(faa_path, "w") as out_fh, ProcessPoolExecutor(max_workers=12) as ex:
+        for bid, proteins, status in ex.map(_fetch_predict_one, pairs):
+            if status == "FETCH_FAIL":
                 n_ff += 1
-                continue
-            if not contigs:
-                n_ff += 1
-                continue
-            try:
-                proteins, _cds, _nt = predict_genes(contigs)
-            except Exception:
+            elif status.startswith("PRED_FAIL"):
                 n_pf += 1
-                continue
-            if not proteins:
-                n_pf += 1
-                continue
-            for i, seq in enumerate(proteins):
-                if seq:
-                    out_fh.write(f">bid_{bid}_p{i}\n{seq}\n")
-            n_ok += 1
+            else:
+                for i, seq in enumerate(proteins):
+                    if seq:
+                        out_fh.write(f">bid_{bid}_p{i}\n{seq}\n")
+                n_ok += 1
     fetch_dt = time.time() - t0
-    print(f"  fetch+predict: {n_ok} ok, {n_ff} ff, {n_pf} pf, in {fetch_dt:.0f}s", flush=True)
+    print(f"  fetch+predict (parallel): {n_ok} ok, {n_ff} ff, {n_pf} pf, in {fetch_dt:.0f}s", flush=True)
 
     if n_ok == 0:
         return {}
@@ -229,11 +241,8 @@ def main(limit: int = 0, batch_size: int = 100, min_freq: float = 0.01):
     import pandas as pd
     import numpy as np
 
-    ncbi_key = os.environ.get("NCBI_API_KEY", "")
-    if not ncbi_key:
-        print("WARNING: NCBI_API_KEY not set — NCBI fetches will be rate-limited 3x.")
-        print("  Get a free key at https://www.ncbi.nlm.nih.gov/account/settings and")
-        print("  re-run with: NCBI_API_KEY=... modal run modal_eggnog.py")
+    # NCBI_API_KEY is read inside each container from the Modal Secret
+    # named 'ncbi-api-key' (see process_batch decorator). No need to forward.
 
     acc_path = ROOT / "data" / "genome_accessions.tsv"
     df = pd.read_csv(acc_path, sep="\t")
@@ -249,7 +258,6 @@ def main(limit: int = 0, batch_size: int = 100, min_freq: float = 0.01):
     n_done = 0
     for batch_result in process_batch.map(
         batches,
-        kwargs={"ncbi_api_key": ncbi_key},
         order_outputs=False,
         return_exceptions=False,
     ):

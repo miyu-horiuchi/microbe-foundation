@@ -66,6 +66,13 @@ DB_FILES = ["eggnog.db.gz", "eggnog_proteins.dmnd.gz", "eggnog.taxa.tar.gz"]
 # Stage 1: one-time DB download
 # ---------------------------------------------------------------------------
 
+EXPECTED_SIZES = {
+    "eggnog.db.gz": 6776977123,
+    "eggnog_proteins.dmnd.gz": 5208806170,
+    "eggnog.taxa.tar.gz": 72797584,
+}
+
+
 @app.function(
     volumes={DB_DIR: db_volume},
     cpu=4,
@@ -73,23 +80,33 @@ DB_FILES = ["eggnog.db.gz", "eggnog_proteins.dmnd.gz", "eggnog.taxa.tar.gz"]
     timeout=60 * 60,  # 1 hour
 )
 def download_db():
-    """Download eggNOG-mapper diamond database into the volume. Idempotent."""
+    """Download eggNOG-mapper diamond database into the volume. Idempotent +
+    self-healing: detects truncated .gz files from prior preempted downloads
+    and re-fetches them."""
     os.makedirs(DB_DIR, exist_ok=True)
 
-    # Skip if all 3 final files already exist
-    expected = ["eggnog.db", "eggnog_proteins.dmnd", "eggnog.taxa.db"]
-    if all(os.path.exists(f"{DB_DIR}/{f}") for f in expected):
+    expected_decompressed = ["eggnog.db", "eggnog_proteins.dmnd", "eggnog.taxa.db"]
+    if all(os.path.exists(f"{DB_DIR}/{f}") for f in expected_decompressed):
         print("DB already populated. Skipping download.")
         return
 
     for fname in DB_FILES:
         target_gz = f"{DB_DIR}/{fname}"
+        expected_size = EXPECTED_SIZES.get(fname)
         if os.path.exists(target_gz):
-            print(f"  already downloaded: {fname}")
-            continue
+            actual_size = os.path.getsize(target_gz)
+            if expected_size is None or actual_size == expected_size:
+                print(f"  already downloaded ({actual_size} bytes): {fname}")
+                continue
+            else:
+                print(f"  TRUNCATED ({actual_size} of expected {expected_size}): {fname} — re-downloading")
+                os.remove(target_gz)
         url = f"{EGGNOG_BASE}/{fname}"
         print(f"  downloading {url} -> {target_gz}", flush=True)
         subprocess.run(["wget", "-q", "-O", target_gz, url], check=True)
+        actual_size = os.path.getsize(target_gz)
+        if expected_size and actual_size != expected_size:
+            raise RuntimeError(f"download of {fname} ended at {actual_size} != expected {expected_size}")
 
     print("decompressing ...", flush=True)
     for fname in ["eggnog.db.gz", "eggnog_proteins.dmnd.gz"]:
@@ -249,18 +266,43 @@ def main(limit: int = 0, batch_size: int = 100, min_freq: float = 0.01):
     if limit:
         df = df.head(limit)
     pairs = [(int(r.bacdive_id), str(r.accession)) for r in df.itertuples()]
+
+    # If a checkpoint exists, skip genomes already done so we don't redo work.
+    per_genome: dict[int, list[str]] = {}
+    ckpt_path = ROOT / "data" / "eggnog_per_genome_partial.json"
+    if ckpt_path.exists():
+        try:
+            cached = json.loads(ckpt_path.read_text())
+            per_genome.update({int(k): v for k, v in cached.items()})
+            done_bids = set(per_genome.keys())
+            before = len(pairs)
+            pairs = [(b, a) for (b, a) in pairs if b not in done_bids]
+            print(f"  resume: {len(per_genome):,} genomes already in checkpoint, "
+                  f"{len(pairs):,} of {before:,} remaining", flush=True)
+        except Exception as e:
+            print(f"  checkpoint exists but couldn't load: {e}", flush=True)
+
     batches = [pairs[i : i + batch_size] for i in range(0, len(pairs), batch_size)]
     print(f"dispatching {len(batches)} batches of up to {batch_size} genomes "
           f"(total {len(pairs):,} genomes)", flush=True)
 
     t0 = time.time()
-    per_genome: dict[int, list[str]] = {}
     n_done = 0
+    # Checkpoint per-genome OG sets to disk every CKPT_EVERY batches so a
+    # killed driver doesn't lose all in-memory work (which is what bit us on
+    # the previous Modal eggNOG attempts). The checkpoint was already loaded
+    # above to skip done genomes.
+    CKPT_EVERY = 5
+
     for batch_result in process_batch.map(
         batches,
         order_outputs=False,
-        return_exceptions=False,
+        return_exceptions=True,  # keep loop alive on Modal-side blob fetch errors
     ):
+        if isinstance(batch_result, Exception):
+            print(f"  [WARN] batch returned exception: {type(batch_result).__name__}: {batch_result}",
+                  flush=True)
+            continue
         per_genome.update(batch_result)
         n_done += 1
         dt = time.time() - t0
@@ -268,7 +310,11 @@ def main(limit: int = 0, batch_size: int = 100, min_freq: float = 0.01):
         eta_min = (len(batches) - n_done) * dt / max(n_done, 1) / 60
         print(f"  [{n_done}/{len(batches)}] {len(per_genome):,} genomes done, "
               f"rate={rate:.1f} genomes/sec, eta={eta_min:.1f}min", flush=True)
+        if n_done % CKPT_EVERY == 0:
+            ckpt_path.write_text(json.dumps({str(k): v for k, v in per_genome.items()}))
 
+    # final checkpoint
+    ckpt_path.write_text(json.dumps({str(k): v for k, v in per_genome.items()}))
     print(f"\nall batches done. {len(per_genome):,} genomes with OGs.", flush=True)
 
     # Build vocab and per-genome vectors

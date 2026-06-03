@@ -1,41 +1,51 @@
 """
 modal_esm2_perprotein.py — un-pooled, full-proteome ESM-2 embeddings on Modal.
 
-GPU analogue of compute_esm2_perprotein_mp.py. Instead of one local GPU, fan out
-across many Modal GPU containers: each container loads ESM-2 once, then for a
-batch of genomes does NCBI fetch + pyrodigal (CPU) and ESM-2 embedding (GPU),
-writing one [n_proteins, 640] fp16 .npy per genome into a persistent Volume.
+GPU analogue of compute_esm2_perprotein_mp.py, split into two phases because
+NCBI rate-limits hard under wide fan-out (a one-phase run lost ~44% of genomes
+to FETCH_FAIL when ~10 GPU containers fetched in parallel on one API key):
 
-Two-stage Modal app:
+  Phase A — fetch+predict (CPU, ONE container, <=16 workers)
+      Reproduces the proven single-process config (19,608/19,637 = 99.8% on the
+      prior pooled run). Fetches FASTA + pyrodigal-predicts proteins and caches
+      each genome's protein sequences to the Volume as proteins/<bid>.txt.gz.
+      This is the rate-limited stage — kept deliberately narrow.
 
-  1) Embedder.process_batch(pairs)  (parallel GPU) — for a batch of
-        (bacdive_id, accession): fetch FASTA, pyrodigal-predict proteins, embed
-        every protein with ESM-2 (residue-mean-pooled, NOT pooled across
-        proteins), write <bid>.npy to the output Volume. Returns manifest rows.
-  2) local driver                   (local)       — read genome_accessions.tsv,
-        skip genomes already in the Volume, .map() across containers, then merge
-        + persist manifest.parquet into the Volume.
+  Phase B — embed (GPU, fan out WIDE, no NCBI)
+      Each container reads cached proteins from the Volume and runs ESM-2
+      (residue-mean-pooled per protein, NOT pooled across proteins), writing one
+      [n_proteins, embed_dim] fp16 <bid>.npy per genome. No network in the hot
+      loop, so it scales to however many GPUs Modal will give us.
+
+Caching proteins also makes a later 650M re-embed free of any re-fetch.
 
 Output Volume layout (name: microbe-esm2-perprotein):
-    <bacdive_id>.npy     float16 [n_proteins, embed_dim]
-    manifest.parquet     bacdive_id, accession, n_proteins, status, path
+    proteins/<bid>.txt.gz   gzipped, one protein AA sequence per line (Phase A)
+    <bid>.npy               float16 [n_proteins, embed_dim]          (Phase B)
+    manifest.parquet        bacdive_id, accession, n_proteins, status, path
 
 Run:
-    # smoke: 20 genomes on the tiny 8M model (proves the pipeline, ~cents)
+    # smoke: 20 genomes, tiny 8M model, both phases
     modal run modal_esm2_perprotein.py --limit 20 \
         --model facebook/esm2_t6_8M_UR50D --batch-size 10
 
-    # full corpus on the 150M model (the locked spec config)
+    # full corpus on 150M (locked spec config) — runs Phase A then Phase B
     modal run modal_esm2_perprotein.py
 
+    # run only one phase
+    modal run modal_esm2_perprotein.py --skip-embed     # fetch+cache only
+    modal run modal_esm2_perprotein.py --skip-fetch     # embed cached proteins
+
     # pull results down for local training (model.py --per-protein)
-    modal volume get microbe-esm2-perprotein / ./data/esm2_perprotein
+    modal volume get microbe-esm2-perprotein "*.npy" ./data/esm2_perprotein
+    modal volume get microbe-esm2-perprotein manifest.parquet ./data/esm2_perprotein
 
 GPU type defaults to A100 (ample for 150M/640, cheaper than H100). Override:
     ESM2_GPU=H100 modal run modal_esm2_perprotein.py
 """
 # NB: no `from __future__ import annotations` — it stringifies the class-body
 # type hints and breaks modal.parameter's type resolution (Modal 1.2.x).
+import gzip
 import os
 import time
 from pathlib import Path
@@ -65,9 +75,10 @@ image = (
     .add_local_dir(str(ROOT / "microbe_model"), "/root/microbe_model", copy=True)
 )
 
-# Persistent output: one .npy per genome (~100 GB at full scale, fp16).
+# Persistent output: cached proteins + one .npy per genome (~100 GB at full scale).
 out_volume = modal.Volume.from_name("microbe-esm2-perprotein", create_if_missing=True)
 OUT_DIR = "/out"
+PROT_DIR = "/out/proteins"
 
 # Persistent HuggingFace cache so the ESM-2 weights download once, not per container.
 hf_volume = modal.Volume.from_name("microbe-hf-cache", create_if_missing=True)
@@ -79,12 +90,26 @@ GPU = os.environ.get("ESM2_GPU", "A100")
 app = modal.App("microbe-esm2-perprotein", image=image)
 
 
-def _genome_filename(bid: int) -> str:
+def _npy_name(bid: int) -> str:
     return f"{bid}.npy"
 
 
+def _prot_path(bid: int) -> str:
+    return os.path.join(PROT_DIR, f"{bid}.txt.gz")
+
+
+def _write_proteins(bid: int, proteins: list[str]) -> None:
+    with gzip.open(_prot_path(bid), "wt") as fh:
+        fh.write("\n".join(proteins))
+
+
+def _read_proteins(bid: int) -> list[str]:
+    with gzip.open(_prot_path(bid), "rt") as fh:
+        return [ln for ln in fh.read().split("\n") if ln]
+
+
 # ---------------------------------------------------------------------------
-# Stage 1: per-batch GPU worker
+# Phase A: fetch + predict (CPU, single container, controlled concurrency)
 # ---------------------------------------------------------------------------
 
 
@@ -111,11 +136,71 @@ def _fetch_predict_one(bid_acc):
     return (bid, acc, proteins, "OK")
 
 
+@app.function(
+    volumes={OUT_DIR: out_volume},
+    secrets=[modal.Secret.from_name("ncbi-api-key")],  # exports NCBI_API_KEY
+    cpu=16,
+    memory=32768,
+    timeout=60 * 60 * 6,   # 6 hr — whole corpus in one narrow container
+    max_containers=1,      # ONE container: keeps global NCBI concurrency ~= workers
+)
+def fetch_predict_all(pairs: list[tuple[int, str]], workers: int = 16,
+                      checkpoint_every: int = 200) -> list[dict]:
+    """Fetch FASTA + pyrodigal-predict for every pair, caching proteins to the
+    Volume. Resumable: skips genomes whose proteins/<bid>.txt.gz already exists.
+    Returns one manifest-ish row per genome (status, n_proteins; no path yet)."""
+    import sys
+    sys.path.insert(0, "/root")
+    from concurrent.futures import ProcessPoolExecutor
+
+    os.makedirs(PROT_DIR, exist_ok=True)
+    out_volume.reload()
+    if not os.environ.get("NCBI_API_KEY"):
+        print("WARNING: NCBI_API_KEY not in container env (Modal Secret missing?)", flush=True)
+
+    todo = [(b, a) for (b, a) in pairs if not os.path.exists(_prot_path(b))]
+    print(f"Phase A: {len(pairs)-len(todo):,} already cached, {len(todo):,} to fetch "
+          f"({workers} workers)", flush=True)
+
+    rows: list[dict] = []
+    n_ok = n_ff = n_pf = 0
+    t0 = time.time()
+    with ProcessPoolExecutor(max_workers=workers) as ex:
+        for i, (bid, acc, proteins, status) in enumerate(ex.map(_fetch_predict_one, todo), 1):
+            if status == "OK":
+                _write_proteins(bid, proteins)
+                n_ok += 1
+                rows.append({"bacdive_id": bid, "accession": acc,
+                             "n_proteins": len(proteins), "status": "fetched", "path": ""})
+            elif status == "FETCH_FAIL":
+                n_ff += 1
+                rows.append({"bacdive_id": bid, "accession": acc,
+                             "n_proteins": 0, "status": "FETCH_FAIL", "path": ""})
+            else:
+                n_pf += 1
+                rows.append({"bacdive_id": bid, "accession": acc,
+                             "n_proteins": 0, "status": status, "path": ""})
+            if i % checkpoint_every == 0:
+                out_volume.commit()
+                rate = i / max(time.time() - t0, 1e-6)
+                eta = (len(todo) - i) / max(rate, 1e-6) / 60
+                print(f"  [{i:,}/{len(todo):,}] ok={n_ok:,} ff={n_ff:,} pf={n_pf:,} "
+                      f"rate={rate:.1f}/s eta={eta:.1f}min", flush=True)
+    out_volume.commit()
+    print(f"Phase A done: ok={n_ok:,} ff={n_ff:,} pf={n_pf:,} in {(time.time()-t0)/60:.1f}min",
+          flush=True)
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Phase B: embed (GPU, wide fan-out, reads cached proteins — no NCBI)
+# ---------------------------------------------------------------------------
+
+
 @app.cls(
     gpu=GPU,
     volumes={OUT_DIR: out_volume, HF_DIR: hf_volume},
-    secrets=[modal.Secret.from_name("ncbi-api-key")],  # exports NCBI_API_KEY
-    cpu=16,
+    cpu=8,
     memory=32768,
     timeout=60 * 60 * 2,   # 2 hr per batch
     retries=2,
@@ -128,43 +213,31 @@ class Embedder:
     @modal.enter()
     def load(self):
         """Load ESM-2 once per container (amortized across every batch it handles)."""
-        import os as _os
-        _os.environ["HF_HOME"] = HF_DIR
+        os.environ["HF_HOME"] = HF_DIR
         import sys
         sys.path.insert(0, "/root")
         import torch
         from microbe_model.features.embeddings import load_esm2
-        self._torch = torch
         t0 = time.time()
         self.tokenizer, self.model, self.device = load_esm2(self.model_name, device=torch.device("cuda"))
         self.embed_dim = int(self.model.config.hidden_size)
         print(f"loaded {self.model_name} (dim={self.embed_dim}) in {time.time()-t0:.0f}s", flush=True)
 
     @modal.method()
-    def process_batch(self, pairs: list[tuple[int, str]]) -> list[dict]:
-        """Fetch+predict (CPU, parallel) then ESM-2 embed (GPU) each genome; write
-        one <bid>.npy per genome to the Volume. Returns one manifest row per genome."""
+    def embed_batch(self, pairs: list[tuple[int, str]]) -> list[dict]:
+        """Read each genome's cached proteins from the Volume and embed its full
+        proteome to <bid>.npy. Returns one manifest row per genome."""
         import sys
         sys.path.insert(0, "/root")
         import numpy as np
-        from concurrent.futures import ProcessPoolExecutor
         from microbe_model.features.embeddings import embed_proteins
-
-        if not os.environ.get("NCBI_API_KEY"):
-            print("WARNING: NCBI_API_KEY not in container env (Modal Secret missing?)", flush=True)
 
         out_volume.reload()
         t0 = time.time()
         rows: list[dict] = []
-        n_ok = n_ff = n_pf = n_ef = n_skip = 0
-
-        # CPU stage: fetch + pyrodigal across all genomes in the batch in parallel.
-        with ProcessPoolExecutor(max_workers=12) as ex:
-            fetched = list(ex.map(_fetch_predict_one, pairs))
-
-        # GPU stage: embed each genome's full proteome, write its matrix.
-        for bid, acc, proteins, status in fetched:
-            fname = _genome_filename(bid)
+        n_ok = n_skip = n_miss = n_ef = 0
+        for bid, acc in pairs:
+            fname = _npy_name(bid)
             fpath = os.path.join(OUT_DIR, fname)
             if os.path.exists(fpath):
                 n_skip += 1
@@ -172,18 +245,12 @@ class Embedder:
                              "n_proteins": int(np.load(fpath).shape[0]),
                              "status": "ok", "path": fname})
                 continue
-            if status == "FETCH_FAIL":
-                n_ff += 1
-                rows.append({"bacdive_id": bid, "accession": acc, "n_proteins": 0,
-                             "status": "FETCH_FAIL", "path": ""})
-                continue
-            if status.startswith("PRED_FAIL"):
-                n_pf += 1
-                rows.append({"bacdive_id": bid, "accession": acc, "n_proteins": 0,
-                             "status": status, "path": ""})
+            if not os.path.exists(_prot_path(bid)):
+                n_miss += 1   # not fetched (Phase A failure) — nothing to embed
                 continue
             try:
-                # [n_proteins, embed_dim] — each protein residue-mean-pooled, NOT pooled across proteins.
+                proteins = _read_proteins(bid)
+                # [n_proteins, embed_dim] — residue-mean-pooled per protein, NOT pooled across proteins.
                 matrix = embed_proteins(proteins, self.tokenizer, self.model, self.device,
                                         batch_size=self.prot_batch_size)
                 np.save(fpath, matrix.astype(np.float16))
@@ -195,12 +262,10 @@ class Embedder:
                 print(f"  [warn] {bid} embed: {type(e).__name__}: {e}", flush=True)
                 rows.append({"bacdive_id": bid, "accession": acc, "n_proteins": 0,
                              "status": f"EMBED_FAIL:{type(e).__name__}", "path": ""})
-
         out_volume.commit()
-        dt = time.time() - t0
-        tot_prot = sum(r["n_proteins"] for r in rows if r["status"] == "ok")
-        print(f"  batch: ok={n_ok} skip={n_skip} ff={n_ff} pf={n_pf} ef={n_ef} "
-              f"proteins={tot_prot:,} in {dt:.0f}s", flush=True)
+        tot = sum(r["n_proteins"] for r in rows if r["status"] == "ok")
+        print(f"  batch: ok={n_ok} skip={n_skip} miss={n_miss} ef={n_ef} "
+              f"proteins={tot:,} in {time.time()-t0:.0f}s", flush=True)
         return rows
 
 
@@ -211,7 +276,7 @@ class Embedder:
 
 @app.function(volumes={OUT_DIR: out_volume})
 def scan_done() -> list[int]:
-    """bacdive_ids whose .npy already exists and is non-empty (resume support)."""
+    """bacdive_ids whose .npy already exists and is non-empty (Phase B resume)."""
     out_volume.reload()
     done = []
     for name in os.listdir(OUT_DIR):
@@ -225,9 +290,24 @@ def scan_done() -> list[int]:
 
 
 @app.function(volumes={OUT_DIR: out_volume})
+def scan_fetched() -> list[int]:
+    """bacdive_ids whose proteins/<bid>.txt.gz exists (Phase A output)."""
+    out_volume.reload()
+    if not os.path.isdir(PROT_DIR):
+        return []
+    out = []
+    for name in os.listdir(PROT_DIR):
+        if name.endswith(".txt.gz"):
+            try:
+                out.append(int(name[:-7]))
+            except ValueError:
+                continue
+    return out
+
+
+@app.function(volumes={OUT_DIR: out_volume})
 def write_manifest(rows: list[dict]) -> int:
-    """Merge this run's manifest rows with any existing manifest in the Volume
-    (keyed by bacdive_id) and persist manifest.parquet. Returns total row count."""
+    """Merge rows into manifest.parquet (keyed by bacdive_id, keep last) and persist."""
     import pandas as pd
     out_volume.reload()
     mpath = os.path.join(OUT_DIR, "manifest.parquet")
@@ -246,58 +326,73 @@ def write_manifest(rows: list[dict]) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Stage 2: local driver
+# Driver
 # ---------------------------------------------------------------------------
 
 
 @app.local_entrypoint()
 def main(limit: int = 0, batch_size: int = 20,
-         model: str = "facebook/esm2_t30_150M_UR50D", prot_batch_size: int = 32):
-    """Drive the per-protein extraction. Reads data/genome_accessions.tsv, skips
-    genomes already in the Volume, fans out over GPU containers, persists manifest."""
+         model: str = "facebook/esm2_t30_150M_UR50D", prot_batch_size: int = 32,
+         skip_fetch: bool = False, skip_embed: bool = False, fetch_workers: int = 16):
+    """Two-phase driver. Phase A caches proteins (narrow CPU), Phase B embeds
+    (wide GPU). Both resumable from the Volume."""
     import pandas as pd
 
-    acc_path = ROOT / "data" / "genome_accessions.tsv"
-    df = pd.read_csv(acc_path, sep="\t")
+    df = pd.read_csv(ROOT / "data" / "genome_accessions.tsv", sep="\t")
     if limit:
         df = df.head(limit)
     pairs = [(int(r.bacdive_id), str(r.accession)) for r in df.itertuples()]
+    print(f"corpus: {len(pairs):,} genomes  model={model}  gpu={GPU}", flush=True)
 
-    done = set(scan_done.remote())
-    before = len(pairs)
-    pairs = [(b, a) for (b, a) in pairs if b not in done]
-    print(f"resume: {len(done):,} genomes already in Volume, "
-          f"{len(pairs):,} of {before:,} to compute", flush=True)
-    if not pairs:
-        print("nothing to do.", flush=True)
+    # ---- Phase A: fetch + predict ----
+    if not skip_fetch:
+        fetched = set(scan_fetched.remote())
+        to_fetch = [(b, a) for (b, a) in pairs if b not in fetched]
+        print(f"Phase A: {len(fetched):,} cached, {len(to_fetch):,} to fetch", flush=True)
+        if to_fetch:
+            rows = fetch_predict_all.remote(to_fetch, workers=fetch_workers)
+            n = write_manifest.remote(rows)
+            print(f"Phase A manifest rows: {n:,}", flush=True)
+
+    if skip_embed:
+        print("skip-embed set; stopping after Phase A.", flush=True)
         return
 
-    batches = [pairs[i:i + batch_size] for i in range(0, len(pairs), batch_size)]
-    print(f"model={model} gpu={GPU}  dispatching {len(batches)} batches "
-          f"of up to {batch_size} genomes", flush=True)
+    # ---- Phase B: embed cached proteins ----
+    fetched = set(scan_fetched.remote())
+    embedded = set(scan_done.remote())
+    to_embed = [(b, a) for (b, a) in pairs if b in fetched and b not in embedded]
+    print(f"Phase B: {len(embedded):,} embedded, {len(fetched):,} fetched, "
+          f"{len(to_embed):,} to embed", flush=True)
+    if not to_embed:
+        print("nothing to embed.", flush=True)
+        return
+
+    batches = [to_embed[i:i + batch_size] for i in range(0, len(to_embed), batch_size)]
+    print(f"dispatching {len(batches)} batches of up to {batch_size} genomes", flush=True)
 
     embedder = Embedder(model_name=model, prot_batch_size=prot_batch_size)
     t0 = time.time()
-    all_rows: list[dict] = []
-    n_done = 0
-    n_ok = 0
-    for rows in embedder.process_batch.map(batches, order_outputs=False, return_exceptions=True):
+    pending: list[dict] = []
+    n_done = n_ok = 0
+    for rows in embedder.embed_batch.map(batches, order_outputs=False, return_exceptions=True):
         if isinstance(rows, Exception):
             print(f"  [WARN] batch raised: {type(rows).__name__}: {rows}", flush=True)
             continue
-        all_rows.extend(rows)
+        pending.extend(rows)
         n_ok += sum(1 for r in rows if r["status"] == "ok")
         n_done += 1
-        dt = time.time() - t0
-        rate = n_done / max(dt, 1e-6) * batch_size
-        eta_min = (len(batches) - n_done) * dt / max(n_done, 1) / 60
-        # Persist manifest periodically so a killed driver doesn't lose the index.
         if n_done % 10 == 0:
-            total = write_manifest.remote(all_rows)
-            all_rows = []
+            total = write_manifest.remote(pending)
+            pending = []
+            dt = time.time() - t0
+            rate = n_done / max(dt, 1e-6) * batch_size
+            eta = (len(batches) - n_done) * dt / max(n_done, 1) / 60
             print(f"  [{n_done}/{len(batches)}] ok={n_ok:,} manifest={total:,} "
-                  f"rate={rate:.1f} genomes/s eta={eta_min:.1f}min", flush=True)
+                  f"rate={rate:.1f} genomes/s eta={eta:.1f}min", flush=True)
 
-    total = write_manifest.remote(all_rows)
-    print(f"\ndone in {(time.time()-t0)/60:.1f}min. ok={n_ok:,}  manifest rows={total:,}", flush=True)
-    print("pull results:  modal volume get microbe-esm2-perprotein / ./data/esm2_perprotein", flush=True)
+    total = write_manifest.remote(pending)
+    print(f"\ndone in {(time.time()-t0)/60:.1f}min. embedded ok={n_ok:,}  manifest={total:,}",
+          flush=True)
+    print('pull:  modal volume get microbe-esm2-perprotein "*.npy" ./data/esm2_perprotein',
+          flush=True)

@@ -103,7 +103,15 @@ def main() -> None:
     p.add_argument("--checkpoint-every", type=int, default=50)
     p.add_argument("--workers", type=int, default=16)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--shard", default="0/1",
+                   help="i/N: process only genomes where row_index %% N == i. For a "
+                        "multi-GPU box run N processes, one per GPU: "
+                        "CUDA_VISIBLE_DEVICES=i python ... --shard i/N (i = 0..N-1). "
+                        "Shards write disjoint <bid>.npy to a shared --out-dir.")
     args = p.parse_args()
+    shard_i, shard_n = (int(x) for x in args.shard.split("/"))
+    if not (0 <= shard_i < shard_n):
+        raise SystemExit(f"--shard {args.shard}: need 0 <= i < N")
 
     from microbe_model.features.embeddings import embed_proteins, load_esm2, pick_device
     device = pick_device() if args.device == "auto" else torch.device(args.device)
@@ -114,6 +122,11 @@ def main() -> None:
     print(f"resumed: {len(done):,} genomes already on disk", flush=True)
 
     acc_df = pd.read_csv(args.accessions, sep="\t")
+    if shard_n > 1:
+        # Deterministic round-robin slice: each shard owns a fixed, disjoint
+        # subset of rows regardless of resume state.
+        acc_df = acc_df.iloc[shard_i::shard_n].reset_index(drop=True)
+        print(f"shard {shard_i}/{shard_n}: {len(acc_df):,} of corpus this process", flush=True)
     todo = acc_df[~acc_df.bacdive_id.isin(done)].reset_index(drop=True)
     if args.limit:
         todo = todo.head(args.limit)

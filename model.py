@@ -194,11 +194,50 @@ def prepare_labels(
 # =============================================================================
 
 
-class MicrobeFoundationModel(nn.Module):
-    """Shared MLP encoder + per-trait linear heads."""
+class AttentionPool(nn.Module):
+    """Learned attention pooling over a variable-length set of protein vectors.
 
-    def __init__(self, input_dim: int, head_specs: dict[str, dict], hidden: int = 512, dropout: float = 0.2):
+    Collapses a genome's per-protein embeddings [B, P, D] into one [B, D] vector
+    by learning a weight per protein, instead of a flat mean. A small scorer maps
+    each protein to a scalar; a (padding-masked) softmax over the P proteins turns
+    those into weights that sum to 1; the output is the weighted sum.
+
+    This is what lets the model up-weight the few trait-determining proteins
+    (e.g. a catalase) and down-weight the thousands of irrelevant ones — the whole
+    point of keeping proteins un-pooled.
+    """
+
+    def __init__(self, dim: int, hidden: int | None = None):
         super().__init__()
+        hidden = hidden or dim
+        self.score = nn.Sequential(
+            nn.Linear(dim, hidden),
+            nn.Tanh(),
+            nn.Linear(hidden, 1),
+        )
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """x: [B, P, D] protein embeddings. mask: [B, P], 1=real protein, 0=padding."""
+        scores = self.score(x).squeeze(-1)            # [B, P]
+        scores = scores.masked_fill(mask == 0, float("-inf"))
+        attn = torch.softmax(scores, dim=1)           # [B, P], sums to 1 over real proteins
+        attn = torch.nan_to_num(attn)                 # guard: genome with 0 proteins -> all-zero weights
+        return (x * attn.unsqueeze(-1)).sum(dim=1)    # [B, D]
+
+
+class MicrobeFoundationModel(nn.Module):
+    """Shared MLP encoder + per-trait linear heads.
+
+    When `attention_pool=True`, forward expects per-protein input [B, P, D] plus a
+    [B, P] padding mask, and pools it to [B, D] before the encoder. When False
+    (default), forward takes a pre-pooled [B, D] feature matrix exactly as before —
+    the 2-D .npz path (ESM-2 mean-pool, eggNOG, etc.) is unchanged.
+    """
+
+    def __init__(self, input_dim: int, head_specs: dict[str, dict], hidden: int = 512,
+                 dropout: float = 0.2, attention_pool: bool = False):
+        super().__init__()
+        self.pool = AttentionPool(input_dim) if attention_pool else None
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden),
             nn.ReLU(),
@@ -212,7 +251,9 @@ class MicrobeFoundationModel(nn.Module):
         for name, spec in head_specs.items():
             self.heads[name] = nn.Linear(h_out, spec["size"])
 
-    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor | None = None) -> dict[str, torch.Tensor]:
+        if self.pool is not None:
+            x = self.pool(x, mask)
         h = self.encoder(x)
         return {name: head(h) for name, head in self.heads.items()}
 
@@ -413,6 +454,65 @@ def collate(batch):
     return feats, label_dict, mask_dict
 
 
+class PerProteinDataset(Dataset):
+    """Lazily loads one genome's [n_proteins, D] matrix from its .npy file.
+
+    Avoids holding ~100 GB in RAM: only the genomes in the current batch are
+    read from disk. `paths` is aligned row-for-row with `labels`/`masks`.
+    """
+
+    def __init__(self, paths: list[Path], labels: dict, masks: dict, max_proteins: int | None = None):
+        self.paths = paths
+        self.labels = labels
+        self.masks = masks
+        self.max_proteins = max_proteins
+
+    def __len__(self) -> int:
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        arr = np.load(self.paths[idx]).astype(np.float32)  # [P, D] (stored fp16)
+        if self.max_proteins and arr.shape[0] > self.max_proteins:
+            sel = np.random.choice(arr.shape[0], self.max_proteins, replace=False)
+            arr = arr[sel]
+        x = torch.from_numpy(arr)
+        return (
+            x,
+            {k: v[idx] for k, v in self.labels.items()},
+            {k: v[idx] for k, v in self.masks.items()},
+        )
+
+
+def collate_perprotein(batch):
+    """Pad ragged [P, D] genomes to the batch's max P; build a [B, P] padding mask.
+
+    Returns feats as a (padded, mask) tuple so the rest of the loop can tell the
+    per-protein path apart from the pre-pooled one.
+    """
+    xs = [b[0] for b in batch]
+    B = len(xs)
+    P = max(x.shape[0] for x in xs)
+    D = xs[0].shape[1]
+    padded = torch.zeros(B, P, D, dtype=torch.float32)
+    pmask = torch.zeros(B, P, dtype=torch.float32)
+    for i, x in enumerate(xs):
+        p = x.shape[0]
+        padded[i, :p] = x
+        pmask[i, :p] = 1.0
+    label_dict = {k: torch.stack([b[1][k] for b in batch]) for k in batch[0][1]}
+    mask_dict = {k: torch.stack([b[2][k] for b in batch]) for k in batch[0][2]}
+    return (padded, pmask), label_dict, mask_dict
+
+
+def _model_forward(model, feats, device):
+    """Run the model on a batch's feats, handling both the pre-pooled ([B,D]) and
+    per-protein ((padded [B,P,D], mask [B,P])) cases."""
+    if isinstance(feats, tuple):
+        x, pmask = feats
+        return model(x.to(device), pmask.to(device))
+    return model(feats.to(device))
+
+
 # =============================================================================
 # Training / evaluation
 # =============================================================================
@@ -430,8 +530,7 @@ def run_eval(model, loader, specs, device) -> dict[str, dict[str, float]]:
     buf: dict[str, dict[str, list]] = {}
     with torch.no_grad():
         for feats, labels, masks in loader:
-            feats = feats.to(device)
-            preds = model(feats)
+            preds = _model_forward(model, feats, device)
             for name, pred in preds.items():
                 spec = specs[name]
                 h = spec["head_type"]
@@ -553,8 +652,7 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
         for feats, labels, masks in train_loader:
             for g in optim.param_groups:
                 g["lr"] = lr_at(step)
-            feats = feats.to(device)
-            preds = model(feats)
+            preds = _model_forward(model, feats, device)
             loss, _ = masked_loss(preds, labels, masks, specs, weights=class_weights)
             optim.zero_grad()
             loss.backward()
@@ -583,6 +681,11 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--features", type=Path, default=None, help="features.npz (bacdive_ids, features). Omit for random smoke test.")
+    parser.add_argument("--per-protein", type=Path, default=None,
+                        help="Directory of un-pooled per-protein embeddings (<bid>.npy + manifest.parquet) "
+                             "from compute_esm2_perprotein_mp.py. Enables attention pooling. Overrides --features.")
+    parser.add_argument("--max-proteins", type=int, default=0,
+                        help="With --per-protein, cap proteins per genome per batch (0 = no cap). Bounds GPU memory.")
     parser.add_argument("--split-level", choices=["species", "genus", "family"], default="family")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch", type=int, default=256)
@@ -620,7 +723,19 @@ def main() -> None:
     print(f"Loaded {len(df):,} strains  (split={args.split_level})")
     print(f"  train: {(df.split == 'train').sum():,}   val: {(df.split == 'val').sum():,}   test: {(df.split == 'test').sum():,}")
 
-    if args.features:
+    per_protein = args.per_protein is not None
+    features = None       # pre-pooled [N, D] tensor (2-D path); None when per-protein
+    feat_paths = None      # list[Path] aligned to df rows (per-protein path)
+    if per_protein:
+        manifest = pd.read_parquet(args.per_protein / "manifest.parquet")
+        ok = manifest[manifest.status == "ok"]
+        id_to_path = {int(b): args.per_protein / p for b, p in zip(ok.bacdive_id, ok.path)}
+        keep_mask = df.bacdive_id.map(id_to_path.__contains__).fillna(False).values
+        df = df[keep_mask].reset_index(drop=True)
+        feat_paths = df.bacdive_id.map(id_to_path).tolist()
+        input_dim = int(np.load(feat_paths[0]).shape[1])
+        print(f"  per-protein: {len(feat_paths):,} genomes, embed_dim={input_dim} from {args.per_protein}")
+    elif args.features:
         npz = np.load(args.features)
         feat_ids = npz["bacdive_ids"]
         feat_mat = npz["features"]
@@ -629,10 +744,12 @@ def main() -> None:
         df = df[keep_mask].reset_index(drop=True)
         feat_rows = df.bacdive_id.map(id_to_row).values
         features = torch.tensor(feat_mat[feat_rows], dtype=torch.float32)
-        print(f"  loaded features [{features.shape[0]}, {features.shape[1]}] from {args.features}")
+        input_dim = features.shape[1]
+        print(f"  loaded features [{features.shape[0]}, {input_dim}] from {args.features}")
     else:
         features = torch.randn(len(df), args.feat_dim)
-        print(f"  using RANDOM features [{features.shape[0]}, {features.shape[1]}] (smoke test)")
+        input_dim = args.feat_dim
+        print(f"  using RANDOM features [{features.shape[0]}, {input_dim}] (smoke test)")
 
     labels, masks, specs = prepare_labels(df, vocab, schema)
     if args.single_task:
@@ -653,19 +770,27 @@ def main() -> None:
         if not idx:
             continue
         idx_t = torch.tensor(idx, dtype=torch.long)
-        feat_sub = features[idx_t]
         labels_sub = {k: v[idx_t] for k, v in labels.items()}
         masks_sub = {k: v[idx_t] for k, v in masks.items()}
+        if per_protein:
+            paths_sub = [feat_paths[i] for i in idx]
+            dataset = PerProteinDataset(paths_sub, labels_sub, masks_sub,
+                                        max_proteins=(args.max_proteins or None))
+            collate_fn = collate_perprotein
+        else:
+            dataset = StrainDataset(features[idx_t], labels_sub, masks_sub)
+            collate_fn = collate
         loaders[split_name] = DataLoader(
-            StrainDataset(feat_sub, labels_sub, masks_sub),
+            dataset,
             batch_size=args.batch,
             shuffle=(split_name == "train"),
-            collate_fn=collate,
+            collate_fn=collate_fn,
             num_workers=0,
         )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = MicrobeFoundationModel(features.shape[1], specs, hidden=args.hidden, dropout=args.dropout).to(device)
+    model = MicrobeFoundationModel(input_dim, specs, hidden=args.hidden, dropout=args.dropout,
+                                   attention_pool=per_protein).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"\nmodel: {n_params:,} parameters  (device={device})")
 
@@ -701,7 +826,7 @@ def main() -> None:
             "split_level": args.split_level,
             "epochs": args.epochs,
             "n_params": n_params,
-            "feature_dim": features.shape[1],
+            "feature_dim": input_dim,
             "n_train": int((df.split == "train").sum()),
             "n_val": int((df.split == "val").sum()),
             "n_test": int((df.split == "test").sum()),

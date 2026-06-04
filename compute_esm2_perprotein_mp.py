@@ -103,6 +103,10 @@ def main() -> None:
     p.add_argument("--checkpoint-every", type=int, default=50)
     p.add_argument("--workers", type=int, default=16)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--frac", default="0:1",
+                   help="start:end fraction of the corpus to process (before sharding). "
+                        "Split unequal-speed boxes proportionally: fast box --frac 0:0.7, "
+                        "slow box --frac 0.7:1.")
     p.add_argument("--shard", default="0/1",
                    help="i/N: process only genomes where row_index %% N == i. For a "
                         "multi-GPU box run N processes, one per GPU: "
@@ -122,11 +126,19 @@ def main() -> None:
     print(f"resumed: {len(done):,} genomes already on disk", flush=True)
 
     acc_df = pd.read_csv(args.accessions, sep="\t")
+    if args.frac != "0:1":
+        # Contiguous fraction of the corpus, applied BEFORE sharding. Lets two
+        # boxes of different speed split work proportionally (fast box a bigger
+        # slice), e.g. --frac 0:0.7 on box A and --frac 0.7:1 on box B.
+        fs, fe = (float(x) for x in args.frac.split(":"))
+        n = len(acc_df)
+        acc_df = acc_df.iloc[int(fs * n):int(fe * n)].reset_index(drop=True)
+        print(f"frac {args.frac}: {len(acc_df):,} of {n:,} genomes this box", flush=True)
     if shard_n > 1:
         # Deterministic round-robin slice: each shard owns a fixed, disjoint
         # subset of rows regardless of resume state.
         acc_df = acc_df.iloc[shard_i::shard_n].reset_index(drop=True)
-        print(f"shard {shard_i}/{shard_n}: {len(acc_df):,} of corpus this process", flush=True)
+        print(f"shard {shard_i}/{shard_n}: {len(acc_df):,} this process", flush=True)
     todo = acc_df[~acc_df.bacdive_id.isin(done)].reset_index(drop=True)
     if args.limit:
         todo = todo.head(args.limit)

@@ -41,8 +41,13 @@ def load_esm2(model_name: str = DEFAULT_MODEL, device: torch.device | None = Non
     """Load tokenizer + model on the best available device. Inference mode, fp16 on cuda."""
     device = device or pick_device()
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    dtype = torch.float16 if device.type == "cuda" else torch.float32
-    model = AutoModel.from_pretrained(model_name, dtype=dtype)
+    # Load in default precision then cast, instead of passing a precision kwarg.
+    # transformers renamed `torch_dtype` -> `dtype` in 4.56; passing either by name
+    # breaks on the other version. Casting after load is version-agnostic, which
+    # matters when the GPU box resolves a different transformers than local.
+    model = AutoModel.from_pretrained(model_name)
+    if device.type == "cuda":
+        model = model.half()  # fp16 for GPU inference
     model.to(device)
     model.train(False)  # inference mode (equivalent to model.eval())
     return tokenizer, model, device

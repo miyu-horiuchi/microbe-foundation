@@ -17,7 +17,7 @@ torch>=2.2
 # NOTE: this path requires Python >= 3.11 because of transitive
 # transformers/Pillow compatibility. Older Python can still run
 # fetch/parse/splits/vocab/model with random features.
-transformers>=4.40
+transformers>=4.40,<4.58  # 4.57.x is the verified-working set; a partial/downgraded install on the GPU box broke EsmModel + the dtype kwarg
 
 # Optional baselines
 scikit-learn>=1.4

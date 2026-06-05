@@ -58,6 +58,13 @@ try:
 except ImportError:
     sys.exit("requires: pip install pandas pyarrow torch numpy")
 
+# With num_workers>0 the per-protein loader ships large padded batch tensors
+# between processes. PyTorch's default 'file_descriptor' strategy burns one FD
+# per shared tensor and exhausts the (often 1024) open-file limit -> workers die
+# with ConnectionRefusedError. 'file_system' shares by name and avoids that.
+if hasattr(torch, "multiprocessing"):
+    torch.multiprocessing.set_sharing_strategy("file_system")
+
 
 DATA_DIR = Path(__file__).parent / "data"
 SCHEMA_PATH = Path(__file__).parent / "trait_schema.json"
@@ -507,7 +514,9 @@ def collate_perprotein(batch):
 def _model_forward(model, feats, device):
     """Run the model on a batch's feats, handling both the pre-pooled ([B,D]) and
     per-protein ((padded [B,P,D], mask [B,P])) cases."""
-    if isinstance(feats, tuple):
+    # pin_memory / default_convert can turn the (padded, mask) tuple into a list,
+    # so accept either — a bare tensor is the pre-pooled path.
+    if isinstance(feats, (tuple, list)):
         x, pmask = feats
         return model(x.to(device), pmask.to(device))
     return model(feats.to(device))
@@ -689,6 +698,9 @@ def main() -> None:
     parser.add_argument("--split-level", choices=["species", "genus", "family"], default="family")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch", type=int, default=256)
+    parser.add_argument("--num-workers", type=int, default=8,
+                        help="DataLoader worker processes. >0 parallelizes the per-protein .npy disk reads "
+                             "so the GPU isn't starved (the lazy PerProteinDataset is I/O-bound otherwise).")
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--hidden", type=int, default=512)
     parser.add_argument("--dropout", type=float, default=0.2)
@@ -785,7 +797,9 @@ def main() -> None:
             batch_size=args.batch,
             shuffle=(split_name == "train"),
             collate_fn=collate_fn,
-            num_workers=0,
+            num_workers=args.num_workers,
+            pin_memory=torch.cuda.is_available(),
+            persistent_workers=(args.num_workers > 0),
         )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -222,6 +222,11 @@ class AttentionPool(nn.Module):
             nn.Tanh(),
             nn.Linear(hidden, 1),
         )
+        # Interpretability hook: when store_attn is True, each forward stashes the
+        # per-protein softmax weights in last_attn (detached) so an extraction pass
+        # can read which proteins the model up-weighted. Off during training (no cost).
+        self.store_attn = False
+        self.last_attn: torch.Tensor | None = None
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """x: [B, P, D] protein embeddings. mask: [B, P], 1=real protein, 0=padding."""
@@ -229,6 +234,8 @@ class AttentionPool(nn.Module):
         scores = scores.masked_fill(mask == 0, float("-inf"))
         attn = torch.softmax(scores, dim=1)           # [B, P], sums to 1 over real proteins
         attn = torch.nan_to_num(attn)                 # guard: genome with 0 proteins -> all-zero weights
+        if self.store_attn:
+            self.last_attn = attn.detach()
         return (x * attn.unsqueeze(-1)).sum(dim=1)    # [B, D]
 
 
@@ -707,6 +714,8 @@ def main() -> None:
     parser.add_argument("--feat-dim", type=int, default=128, help="Smoke-test feature dim (ignored if --features given)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save-metrics", type=Path, default=None, help="Write final test metrics to this JSON path")
+    parser.add_argument("--save-model", type=Path, default=None,
+                        help="Save the trained weights + rebuild config to this .pt path (for attention extraction)")
     parser.add_argument("--run-name", type=str, default="", help="Tag for the saved metrics (e.g., 'esm2-35M-family')")
     parser.add_argument("--class-weights", action="store_true",
                         help="Balance loss by inverse class frequency on training labels. "
@@ -858,6 +867,21 @@ def main() -> None:
         args.save_metrics.parent.mkdir(exist_ok=True)
         args.save_metrics.write_text(json.dumps(out, indent=2))
         print(f"\nwrote test metrics to {args.save_metrics}")
+
+    if args.save_model:
+        # Everything needed to rebuild the model for attention extraction:
+        # weights + the constructor args (head sizes, input_dim, pool flag).
+        args.save_model.parent.mkdir(parents=True, exist_ok=True)
+        torch.save({
+            "state_dict": model.state_dict(),
+            "input_dim": input_dim,
+            "hidden": args.hidden,
+            "attention_pool": per_protein,
+            "head_sizes": {name: int(head.out_features) for name, head in model.heads.items()},
+            "split_level": args.split_level,
+            "seed": args.seed,
+        }, args.save_model)
+        print(f"wrote model checkpoint to {args.save_model}")
 
 
 if __name__ == "__main__":

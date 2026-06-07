@@ -1,0 +1,21 @@
+{
+  "traits": [
+    {"name": "gram_stain", "prediction": "Gram-negative", "confidence": 0.91},
+    {"name": "oxygen_tolerance", "prediction": "facultative anaerobe", "confidence": 0.74},
+    {"name": "temperature_class", "prediction": "mesophile", "confidence": 0.88},
+    {"name": "ph_class", "prediction": "neutral", "confidence": 0.69},
+    {"name": "halophily", "prediction": "non-halophile", "confidence": 0.76},
+    {"name": "pathogenicity_human", "prediction": "low signal", "confidence": 0.63}
+  ],
+  "media": [
+    {"name": "R2A agar / broth", "score": 0.42, "rationale": "low-nutrient broad screen; often useful for environmental isolates"},
+    {"name": "Tryptic soy broth, diluted", "score": 0.35, "rationale": "general heterotroph fallback with reduced richness"},
+    {"name": "Marine broth variant", "score": 0.21, "rationale": "consider only when source or salt signal supports marine conditions"}
+  ],
+  "caveats": [
+    "Example output only. Attach assets/model_bundle/ for live model inference.",
+    "Family-level novelty should be treated as high uncertainty.",
+    "Medium predictions are screening leads, not guaranteed growth recipes."
+  ]
+}
+

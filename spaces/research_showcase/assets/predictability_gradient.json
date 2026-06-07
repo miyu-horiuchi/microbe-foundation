@@ -1,0 +1,654 @@
+{
+  "paper": {
+    "title": "When Does Attention Help? A Predictability Gradient for Genomic Trait Prediction",
+    "date": "2026-06-05",
+    "n_genomes": 19592,
+    "n_proteins": 82000000,
+    "n_traits": 21,
+    "embedding": "ESM-2 t30 150M, 640-d per protein"
+  },
+  "trait_classes": {
+    "compositional": [
+      "gram_stain",
+      "cell_shape",
+      "motility",
+      "sporulation",
+      "oxygen_tolerance",
+      "catalase",
+      "cytochrome_oxidase",
+      "temperature_class",
+      "ph_class",
+      "halophily",
+      "pigmentation"
+    ],
+    "machinery": [
+      "pathogenicity_human",
+      "pathogenicity_animal",
+      "cultivation_medium",
+      "carbon_utilization",
+      "metabolite_production",
+      "amr_phenotype",
+      "biosafety_level",
+      "fatty_acid_profile"
+    ],
+    "excluded": [
+      "isolation_source",
+      "country"
+    ]
+  },
+  "headline_gradient": [
+    {
+      "split": "species",
+      "class": "compositional",
+      "delta_f1": 0.021,
+      "std": 0.002
+    },
+    {
+      "split": "species",
+      "class": "machinery",
+      "delta_f1": 0.083,
+      "std": 0.012
+    },
+    {
+      "split": "genus",
+      "class": "compositional",
+      "delta_f1": 0.016,
+      "std": 0.004
+    },
+    {
+      "split": "genus",
+      "class": "machinery",
+      "delta_f1": 0.067,
+      "std": 0.01
+    },
+    {
+      "split": "family",
+      "class": "compositional",
+      "delta_f1": 0.009,
+      "std": 0.002
+    },
+    {
+      "split": "family",
+      "class": "machinery",
+      "delta_f1": 0.01,
+      "std": 0.003
+    }
+  ],
+  "head_deltas": [
+    {
+      "split": "species",
+      "head": "pathogenicity_animal",
+      "class": "machinery",
+      "delta_f1_mean": 0.3376119292681733,
+      "delta_f1_std": 0.08374936027377627,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "pathogenicity_animal",
+      "class": "machinery",
+      "delta_f1_mean": 0.2979664662784043,
+      "delta_f1_std": 0.020573612098103867,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "pathogenicity_human",
+      "class": "machinery",
+      "delta_f1_mean": 0.2074663808926904,
+      "delta_f1_std": 0.008310251143190932,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "pathogenicity_human",
+      "class": "machinery",
+      "delta_f1_mean": 0.1279552745215088,
+      "delta_f1_std": 0.05361646622394811,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "ph_class",
+      "class": "compositional",
+      "delta_f1_mean": 0.1001475713311995,
+      "delta_f1_std": 0.011140787087243587,
+      "n_seeds": 2
+    },
+    {
+      "split": "species",
+      "head": "cultivation_medium",
+      "class": "machinery",
+      "delta_f1_mean": 0.067745666480817,
+      "delta_f1_std": 0.019233921241123633,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "motility",
+      "class": "compositional",
+      "delta_f1_mean": 0.0641004696937731,
+      "delta_f1_std": 0.007986276426442342,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "biosafety_level",
+      "class": "machinery",
+      "delta_f1_mean": 0.050210952545937194,
+      "delta_f1_std": 0.014544863472706842,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "halophily",
+      "class": "compositional",
+      "delta_f1_mean": 0.050205207199056245,
+      "delta_f1_std": 0.03284158375811424,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "pathogenicity_animal",
+      "class": "machinery",
+      "delta_f1_mean": 0.047982606516957946,
+      "delta_f1_std": 0.03808938096348023,
+      "n_seeds": 2
+    },
+    {
+      "split": "genus",
+      "head": "cultivation_medium",
+      "class": "machinery",
+      "delta_f1_mean": 0.04443321642820661,
+      "delta_f1_std": 0.00834829888021163,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "halophily",
+      "class": "compositional",
+      "delta_f1_mean": 0.040339738044369355,
+      "delta_f1_std": 0.006863367357896401,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "biosafety_level",
+      "class": "machinery",
+      "delta_f1_mean": 0.036593382146310915,
+      "delta_f1_std": 0.002535112099797844,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "motility",
+      "class": "compositional",
+      "delta_f1_mean": 0.03431178520238972,
+      "delta_f1_std": 0.016797707027175233,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "pathogenicity_human",
+      "class": "machinery",
+      "delta_f1_mean": 0.032147147915443666,
+      "delta_f1_std": 0.004067119835415585,
+      "n_seeds": 2
+    },
+    {
+      "split": "species",
+      "head": "cytochrome_oxidase",
+      "class": "compositional",
+      "delta_f1_mean": 0.031543238769128235,
+      "delta_f1_std": 0.007684049186451357,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "oxygen_tolerance",
+      "class": "compositional",
+      "delta_f1_mean": 0.028040833225200307,
+      "delta_f1_std": 0.020036877915173088,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "sporulation",
+      "class": "compositional",
+      "delta_f1_mean": 0.027103151752311778,
+      "delta_f1_std": 0.005118252078597931,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "sporulation",
+      "class": "compositional",
+      "delta_f1_mean": 0.0214678841797995,
+      "delta_f1_std": 0.007113191304880384,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "ph_class",
+      "class": "compositional",
+      "delta_f1_mean": 0.021458866333506504,
+      "delta_f1_std": 0.007734355798808216,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "sporulation",
+      "class": "compositional",
+      "delta_f1_mean": 0.020217105779731903,
+      "delta_f1_std": 0.004919474650966205,
+      "n_seeds": 2
+    },
+    {
+      "split": "species",
+      "head": "carbon_utilization",
+      "class": "machinery",
+      "delta_f1_mean": 0.019587971188230673,
+      "delta_f1_std": 0.015564876802936571,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "cell_shape",
+      "class": "compositional",
+      "delta_f1_mean": 0.01720656447875084,
+      "delta_f1_std": 0.008622972549640551,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "cell_shape",
+      "class": "compositional",
+      "delta_f1_mean": 0.014723245650847807,
+      "delta_f1_std": 0.004467083567507191,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "temperature_class",
+      "class": "compositional",
+      "delta_f1_mean": 0.01366323252735315,
+      "delta_f1_std": 0.00406494968733899,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "carbon_utilization",
+      "class": "machinery",
+      "delta_f1_mean": 0.013007345891315025,
+      "delta_f1_std": 0.007805524366968371,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "cultivation_medium",
+      "class": "machinery",
+      "delta_f1_mean": 0.012696006713060468,
+      "delta_f1_std": 0.014236026932291423,
+      "n_seeds": 2
+    },
+    {
+      "split": "genus",
+      "head": "ph_class",
+      "class": "compositional",
+      "delta_f1_mean": 0.012201576085835664,
+      "delta_f1_std": 0.02163896763928076,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "gram_stain",
+      "class": "compositional",
+      "delta_f1_mean": 0.010011682951329315,
+      "delta_f1_std": 0.002776017352287441,
+      "n_seeds": 2
+    },
+    {
+      "split": "species",
+      "head": "pigmentation",
+      "class": "compositional",
+      "delta_f1_mean": 0.009186745754785064,
+      "delta_f1_std": 0.005174974904836321,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "motility",
+      "class": "compositional",
+      "delta_f1_mean": 0.008547528249213066,
+      "delta_f1_std": 0.02217700209503498,
+      "n_seeds": 2
+    },
+    {
+      "split": "genus",
+      "head": "metabolite_production",
+      "class": "machinery",
+      "delta_f1_mean": 0.008242879522045702,
+      "delta_f1_std": 0.003114933663518464,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "pigmentation",
+      "class": "compositional",
+      "delta_f1_mean": 0.00666939882964912,
+      "delta_f1_std": 0.008520432444225989,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "cell_shape",
+      "class": "compositional",
+      "delta_f1_mean": 0.005572757048898272,
+      "delta_f1_std": 0.0006730190201802572,
+      "n_seeds": 2
+    },
+    {
+      "split": "family",
+      "head": "halophily",
+      "class": "compositional",
+      "delta_f1_mean": 0.0047577075465093654,
+      "delta_f1_std": 0.00017641880394528298,
+      "n_seeds": 2
+    },
+    {
+      "split": "species",
+      "head": "oxygen_tolerance",
+      "class": "compositional",
+      "delta_f1_mean": 0.0041090892404962815,
+      "delta_f1_std": 0.010238213489608579,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "catalase",
+      "class": "compositional",
+      "delta_f1_mean": 0.0035815294910201225,
+      "delta_f1_std": 0.0007741927509994282,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "metabolite_production",
+      "class": "machinery",
+      "delta_f1_mean": 0.002651022023836505,
+      "delta_f1_std": 0.00554398068690364,
+      "n_seeds": 3
+    },
+    {
+      "split": "species",
+      "head": "gram_stain",
+      "class": "compositional",
+      "delta_f1_mean": 0.002330036930890511,
+      "delta_f1_std": 0.0009671853550761037,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "pigmentation",
+      "class": "compositional",
+      "delta_f1_mean": 0.0006740909734036515,
+      "delta_f1_std": 0.00043921465927065917,
+      "n_seeds": 2
+    },
+    {
+      "split": "family",
+      "head": "metabolite_production",
+      "class": "machinery",
+      "delta_f1_mean": 0.000636490332334011,
+      "delta_f1_std": 0.003007601732142179,
+      "n_seeds": 2
+    },
+    {
+      "split": "genus",
+      "head": "gram_stain",
+      "class": "compositional",
+      "delta_f1_mean": 0.0005993773322651533,
+      "delta_f1_std": 0.000662591514039924,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "catalase",
+      "class": "compositional",
+      "delta_f1_mean": 0.0004623429133778778,
+      "delta_f1_std": 0.00038070480241016223,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "catalase",
+      "class": "compositional",
+      "delta_f1_mean": -0.00031833975164413664,
+      "delta_f1_std": 0.004624551190244464,
+      "n_seeds": 2
+    },
+    {
+      "split": "genus",
+      "head": "temperature_class",
+      "class": "compositional",
+      "delta_f1_mean": -0.0015956765483214896,
+      "delta_f1_std": 0.014742545160841749,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "cytochrome_oxidase",
+      "class": "compositional",
+      "delta_f1_mean": -0.0017095460178815358,
+      "delta_f1_std": 0.005949992950611202,
+      "n_seeds": 3
+    },
+    {
+      "split": "genus",
+      "head": "amr_phenotype",
+      "class": "machinery",
+      "delta_f1_mean": -0.0021797351934118394,
+      "delta_f1_std": 0.011676722821166297,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "temperature_class",
+      "class": "compositional",
+      "delta_f1_mean": -0.003632540405857393,
+      "delta_f1_std": 0.00497955674549691,
+      "n_seeds": 2
+    },
+    {
+      "split": "family",
+      "head": "biosafety_level",
+      "class": "machinery",
+      "delta_f1_mean": -0.006354201093147105,
+      "delta_f1_std": 0.028053765765108207,
+      "n_seeds": 2
+    },
+    {
+      "split": "family",
+      "head": "carbon_utilization",
+      "class": "machinery",
+      "delta_f1_mean": -0.008173485852026235,
+      "delta_f1_std": 0.01711650859041694,
+      "n_seeds": 2
+    },
+    {
+      "split": "species",
+      "head": "amr_phenotype",
+      "class": "machinery",
+      "delta_f1_mean": -0.008404289079232371,
+      "delta_f1_std": 0.021169275519183,
+      "n_seeds": 3
+    },
+    {
+      "split": "family",
+      "head": "cytochrome_oxidase",
+      "class": "compositional",
+      "delta_f1_mean": -0.008517344610052324,
+      "delta_f1_std": 0.005478805377020446,
+      "n_seeds": 2
+    },
+    {
+      "split": "family",
+      "head": "amr_phenotype",
+      "class": "machinery",
+      "delta_f1_mean": -0.011673834630314434,
+      "delta_f1_std": 0.004786954778115221,
+      "n_seeds": 2
+    },
+    {
+      "split": "family",
+      "head": "oxygen_tolerance",
+      "class": "compositional",
+      "delta_f1_mean": -0.04960132172629271,
+      "delta_f1_std": 0.027904495237287677,
+      "n_seeds": 2
+    }
+  ],
+  "attention": {
+    "animal": {
+      "head": "pathogenicity_animal",
+      "auroc": 0.88,
+      "median_entropy": 0.26,
+      "top5_attention_mass": 0.81,
+      "within_top": 0.281,
+      "within_random": 0.059,
+      "within_p": "2.5e-7",
+      "between_top_pathogenic": 0.281,
+      "between_top_non_pathogenic": 0.109,
+      "between_or": 3.2,
+      "between_p": "6.8e-14",
+      "ablation_flip": 0.227,
+      "ablation_p": "1.2e-4"
+    },
+    "human": {
+      "head": "pathogenicity_human",
+      "auroc": 0.85,
+      "between_or": 3.1,
+      "between_p": "3.8e-5",
+      "ablation_flip": 0.125,
+      "ablation_p": "9e-3"
+    },
+    "genes": [
+      "papC",
+      "mrkC",
+      "fhaB",
+      "ail",
+      "pilQ",
+      "fliR"
+    ]
+  },
+  "comparison_rows": [
+    {
+      "trait": "pathogenicity_human",
+      "metric": "acc",
+      "best_ours": "0.936",
+      "run": "esm2-150M-genus",
+      "prior": "PathogenFinder 2013",
+      "prior_score": "0.880",
+      "verdict": "\u2b06"
+    },
+    {
+      "trait": "sporulation",
+      "metric": "f1",
+      "best_ours": "0.944",
+      "run": "hybrid-bacformer-species-sel",
+      "prior": "Traitar 2016",
+      "prior_score": "0.930",
+      "verdict": "\u2b06"
+    },
+    {
+      "trait": "amr_phenotype",
+      "metric": "f1",
+      "best_ours": "0.448",
+      "run": "hybrid-v2-species-sel",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "amr_phenotype",
+      "metric": "f1_macro",
+      "best_ours": "0.561",
+      "run": "esm2-150M-species-bal",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "biosafety_level",
+      "metric": "acc",
+      "best_ours": "0.911",
+      "run": "esm2-150M-genus",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "biosafety_level",
+      "metric": "f1",
+      "best_ours": "0.722",
+      "run": "hybrid-bacformer-family-sel",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "carbon_utilization",
+      "metric": "f1",
+      "best_ours": "0.577",
+      "run": "esm2-150M-species-bal",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "carbon_utilization",
+      "metric": "f1_macro",
+      "best_ours": "0.534",
+      "run": "esm2-150M-species-bal",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "catalase",
+      "metric": "acc",
+      "best_ours": "0.910",
+      "run": "esm2-150M-200p-species-sel",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "catalase",
+      "metric": "f1",
+      "best_ours": "0.949",
+      "run": "esm2-150M-200p-species-sel",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "cell_shape",
+      "metric": "acc",
+      "best_ours": "0.842",
+      "run": "chance-majority-family",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    },
+    {
+      "trait": "cell_shape",
+      "metric": "f1",
+      "best_ours": "0.351",
+      "run": "hybrid-v2-species-sel",
+      "prior": "\u2014",
+      "prior_score": "\u2014",
+      "verdict": "\ud83c\udd95"
+    }
+  ]
+}

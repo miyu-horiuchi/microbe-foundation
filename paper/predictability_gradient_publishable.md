@@ -6,13 +6,22 @@ author:
     m@replicater.xyz
 date: 2026-06-05
 abstract: |
-  A bacterial genome is a *set* of proteins, and predicting an organism's phenotype from that set requires pooling thousands of protein representations into a fixed-size genome vector. The default choice, mean-pooling, treats every protein equally; learned attention-pooling can instead concentrate on a few. We ask a question usually answered by default rather than by evidence: **when does the pooling choice matter, and why?** We propose the *predictability gradient* hypothesis: pooling architecture matters in proportion to how *localized* a trait's genomic signal is. Compositional traits (e.g. oxygen tolerance, cell shape) reflect diffuse genome-wide signal and should be insensitive to pooling; machinery traits (e.g. pathogenicity, nutrient requirements) are determined by a handful of decisive genes and should benefit from attention. We test this on 19,592 bacterial genomes (82M per-protein ESM-2 embeddings) across 21 traits and three taxonomic generalization regimes. With three seeds per configuration, attention-pooling improves machinery traits ~4x more than compositional traits (species-level gap in F1 gain $+0.062 \pm 0.011$ vs $+0.001$ at family level), confirming the gradient and revealing that the advantage *collapses entirely under family-level covariate shift*. We then show the mechanism is genuine: for pathogenicity, the model concentrates 81% of its attention on five proteins, and those proteins are 5x enriched for known virulence factors versus random proteins in the same genome (Wilcoxon $p=2.5\times10^{-7}$) and 3.2x versus non-pathogenic genomes ($p=6.8\times10^{-14}$); ablating them flips 23% of pathogenic predictions. The attention does not merely correlate with virulence; it locates adhesins, fimbrial ushers, and invasion loci, and the prediction depends on them. Our results give a predictive, mechanistically-grounded rule for when un-pooled protein representations are worth their cost, and identify cross-clade generalization, not pooling, as the binding constraint for genomic foundation models.
+  A bacterial genome is a *set* of proteins, and predicting an organism's phenotype from that set requires pooling thousands of protein representations into a fixed-size genome vector. The default choice, mean-pooling, treats every protein equally; learned attention-pooling can instead concentrate on a few. We ask a question usually answered by default rather than by evidence: **when does the pooling choice matter, and why?** We propose the *predictability gradient* hypothesis: pooling architecture matters in proportion to how *localized* a trait's genomic signal is. Compositional traits (e.g. oxygen tolerance, cell shape) reflect diffuse genome-wide signal and should be insensitive to pooling; machinery traits (e.g. pathogenicity, nutrient requirements) are determined by a handful of decisive genes and should benefit from attention. We test this on 19,592 bacterial genomes across 21 traits and three taxonomic generalization regimes. With three seeds per configuration, attention-pooling improves machinery traits ~4x more than compositional traits (species-level gap in F1 gain $+0.062 \pm 0.011$ vs $+0.001$ at family level), confirming the gradient and revealing that the advantage *collapses entirely under family-level covariate shift*. We then show the mechanism is genuine: for pathogenicity, the model concentrates 81% of its attention on five proteins, and those proteins are 5x enriched for known virulence factors versus random proteins in the same genome (Wilcoxon $p=2.5\times10^{-7}$) and 3.2x versus non-pathogenic genomes ($p=6.8\times10^{-14}$); ablating them flips 23% of pathogenic predictions. The attention does not merely correlate with virulence; it locates adhesins, fimbrial ushers, and invasion loci, and the prediction depends on them. Our results give a predictive, mechanistically-grounded rule for when un-pooled protein representations are worth their cost, and identify cross-clade generalization, not pooling, as the binding constraint for genomic foundation models.
 geometry: margin=1in
 fontsize: 10pt
 linkcolor: blue
 header-includes:
   - \usepackage{microtype}
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhf{}
+  - \fancyhead[L]{Horiuchi, Predictability Gradient}
+  - \fancyhead[R]{Manuscript draft}
+  - \fancyfoot[C]{\thepage}
+  - \fancyfoot[L]{Copyright \textcopyright{} 2026 Miyu Horiuchi. All rights reserved.}
 ---
+
+> **Manuscript notice.** Copyright © 2026 Miyu Horiuchi. All rights reserved. This draft is made available for scholarly review and publication consideration. Reuse permissions for code, trained models, datasets, and deployment artifacts are governed separately from this manuscript.
 
 # Introduction
 
@@ -31,9 +40,9 @@ This hypothesis is attractive because it is *falsifiable inside a single archite
 1. **The predictability-gradient hypothesis and its validation.** A testable account of when set-pooling architecture matters for genomic prediction, confirmed on 19,592 genomes / 21 traits with three seeds: attention helps machinery traits ~4x more than compositional traits, with non-overlapping error bars (§4).
 2. **A covariate-shift result.** The gradient is strong within taxonomic distribution and vanishes at the family level (gain gap $+0.062 \to +0.001$). The binding constraint for genomic foundation models is cross-clade generalization, not pooling (§4.2).
 3. **Mechanistic attribution against a virulence-factor database.** For pathogenicity, attention concentrates (81% mass on 5 of ~3,800 proteins) and is enriched for VFDB virulence factors under two controls; ablation shows the prediction depends on them; the hits are coherent adherence/invasion machinery (§5).
-4. **A combinatorial architecture and a reproducible pipeline.** We motivate and specify a set-transformer extension that models protein *interactions* rather than a weighted sum (§6), and release data, splits, checkpoints, and three analysis scripts (§Reproducibility).
+4. **An evaluation protocol for trait-localization hypotheses.** The paper defines a compact, reusable experimental pattern for testing whether architectural changes help because the relevant phenotype is diffuse, localized, or shifted out of distribution. Production systems, future recipe-generation workflows, and nonessential implementation assets are outside the scope of this manuscript.
 
-We are explicit about what this is *not*: not a new encoder (we freeze ESM-2), not a state-of-the-art benchmark sweep, and not a solution to cross-clade generalization, which our own results show is the open problem.
+We are explicit about what this is *not*: not a new encoder (we freeze ESM-2), not a state-of-the-art benchmark sweep, not a release of a production cultivation-recommendation system, and not a solution to cross-clade generalization, which our own results show is the open problem.
 
 # Related Work
 
@@ -41,15 +50,17 @@ We are explicit about what this is *not*: not a new encoder (we freeze ESM-2), n
 
 **Microbial trait prediction.** Classical predictors (Traitar [@weimann2016traitar], Genome Properties [@richardson2019genomeprops], PathogenFinder [@cosentino2013pathogenfinder]) use hand-engineered gene-content features and per-trait classifiers; curated random-forest baselines on BacDive traits remain strong [@koblitz2025traits]. These methods implicitly assume localized, gene-presence signal, consistent with our "machinery" pole, but do not contrast it against a diffuse-signal baseline or quantify when the assumption pays off.
 
-**Attention as explanation.** A literature cautions that attention weights are not, on their own, faithful explanations [@jain2019attention; @wiegreffe2019attention]. We take this seriously: our mechanistic claim does not rest on attention magnitudes but on (i) *external* validation against a curated virulence-factor database [@liu2022vfdb] under matched controls and (ii) *causal* ablation. We flag where ablation is partly mechanical (§5.3, §7).
+**Attention as explanation.** A literature cautions that attention weights are not, on their own, faithful explanations [@jain2019attention; @wiegreffe2019attention]. We take this seriously: our mechanistic claim does not rest on attention magnitudes but on (i) *external* validation against a curated virulence-factor database [@liu2022vfdb] under matched controls and (ii) *causal* ablation. We flag where ablation is partly mechanical (§5.3, §6).
 
-**Set learning.** Attention-pooling over instances is standard in multiple-instance learning [@ilse2018attention], and permutation-invariant set attention is formalized by the Set Transformer [@lee2019settransformer], which our proposed §6 architecture builds on. Our novelty is not the mechanism but tying its benefit to a measurable property of the label (trait localization) and validating the learned attention against ground-truth biology.
+**Set learning.** Attention-pooling over instances is standard in multiple-instance learning [@ilse2018attention], and permutation-invariant set attention is formalized by the Set Transformer [@lee2019settransformer]. Our novelty is not the existence of attention over sets but tying its benefit to a measurable property of the label (trait localization) and validating the learned attention against ground-truth biology.
 
 # Setup
 
 ## Data
 
-Labels are drawn from BacDive [@schober2025bacdive], yielding **21 prediction heads** across seven biological blocks (morphology, physiology, growth conditions, cultivation, safety, ecology, chemotaxonomy). For each strain with an NCBI genome we predict open reading frames with pyrodigal [@larralde2022pyrodigal] and embed **every** protein independently with ESM-2 (`esm2_t30_150M`, 640-d), producing a ragged $[P_i, 640]$ matrix per genome with no pooling. The resulting per-protein corpus is **19,592 genomes / ~82M proteins (~105 GB)**, released on cloud storage (§Reproducibility). A mean-pooled $[640]$ baseline feature is computed from the same embeddings, isolating pooling as the only difference.
+Labels are drawn from BacDive [@schober2025bacdive], yielding **21 prediction heads** across seven biological blocks (morphology, physiology, growth conditions, cultivation, safety, ecology, chemotaxonomy). For each strain with an NCBI genome we predict open reading frames with pyrodigal [@larralde2022pyrodigal] and embed each protein independently with a frozen ESM-2 encoder, producing a ragged protein-representation set per genome. A mean-pooled baseline feature is computed from the same protein representations, isolating pooling as the only experimental variable. The training corpus contains 19,592 genomes and approximately 82M protein representations.
+
+This manuscript describes the scientific evaluation. Complete deployment artifacts, production inference workflows, model checkpoints, and large feature stores are not included in this version and will be governed by separate release materials.
 
 ## Trait taxonomy: compositional vs machinery
 
@@ -62,16 +73,16 @@ Two metadata heads (isolation source, country) are excluded from the gradient an
 
 ## Model
 
-A shared MLP encoder feeds 21 linear heads under a **masked multi-task loss** that contributes zero gradient for missing labels (BacDive coverage ranges 5--95% per head). The only architectural variable is the pooling:
+A shared MLP encoder feeds 21 linear heads under a **masked multi-task loss** that contributes zero gradient for missing labels (BacDive coverage ranges 5--95% per head). The only architectural variable in this experiment is the pooling:
 
 - **Mean-pool:** genome vector $\bar{x} = \frac{1}{P}\sum_i x_i$.
-- **Attention-pool:** a two-layer scorer $s_i = w^\top \tanh(W x_i)$, masked softmax $a = \mathrm{softmax}(s)$ over real proteins, genome vector $z=\sum_i a_i x_i$. The weights $a_i$ are exposed for analysis.
+- **Attention-pool:** a learned scalar scorer produces a masked softmax over real proteins and a weighted-sum genome vector.
 
-Both share encoder, heads, and loss; only pooling differs.
+Both share encoder, heads, and loss; only pooling differs. This deliberately narrow comparison is the reason the result can be interpreted as a pooling effect rather than an encoder effect.
 
 ## Evaluation regimes
 
-We use **species-, genus-, and family-held-out** splits: no species (resp. genus, family) appears in more than one fold. Family-held-out approximates prediction for clades unlike anything seen in training, the regime relevant to uncultured "microbial dark matter." We report macro-F1 per head and, for the gradient, $\Delta\mathrm{F1} = \mathrm{F1}_{\text{attn}} - \mathrm{F1}_{\text{mean}}$, aggregated within trait class, mean $\pm$ std over **3 seeds** (20 epochs, batch 256, $\le 4096$ proteins/genome).
+We use **species-, genus-, and family-held-out** splits: no species (resp. genus, family) appears in more than one fold. Family-held-out approximates prediction for clades unlike anything seen in training, the regime relevant to uncultured "microbial dark matter." We report macro-F1 per head and, for the gradient, $\Delta\mathrm{F1} = \mathrm{F1}_{\text{attn}} - \mathrm{F1}_{\text{mean}}$, aggregated within trait class, mean $\pm$ std over **3 seeds**.
 
 # The Predictability Gradient
 
@@ -101,7 +112,7 @@ On held-out genomes the attention distribution is sharp: median normalized entro
 
 ## Top-attended proteins are enriched for virulence factors
 
-We map each protein's attention rank to its amino-acid sequence (preserved in ORF order alongside the embeddings) and call a protein a virulence factor if it matches VFDB by diamond blastp [@buchfink2021diamond] at $E<10^{-5}$. Two controls:
+We map each protein's attention rank to its amino-acid sequence and call a protein a virulence factor if it matches VFDB by diamond blastp [@buchfink2021diamond] at $E<10^{-5}$. Two controls:
 
 : VFDB enrichment of top-5 attended proteins (animal head; species split).
 
@@ -116,34 +127,30 @@ The proteins attention selects are ~5x more likely to be known virulence factors
 
 Masking the top-5 attended proteins (of ~3,800) and re-predicting flips **22.7% of pathogenic calls** to non-pathogenic (animal; Wilcoxon vs random-protein masking $p=1.2\times10^{-4}$); the human head replicates (12.5%, $p=9\times10^{-3}$). Masking proteins ranked 6--10 produces a 27.5x smaller drop; the dependence is specific to the very top proteins. We note honestly that a top-vs-random ablation gap is *partly mechanical*: attention-pooling is a weighted sum, so removing high-weight elements changes the output more by construction. The non-trivial facts are therefore the **absolute** effect (removing 5 of ~3,800 proteins overturns a quarter of predictions) and its conjunction with §5.2 (those 5 proteins are the virulence machinery). Together they support a causal-mechanistic reading that neither establishes alone.
 
-# A Combinatorial Next Architecture
-
-The §3 attention-pool is a *weighted sum*: each protein contributes independently, weighted by $a_i$. It cannot represent **interactions**, such as "gene A confers the trait only in the presence of gene B," yet pathogenicity is combinatorial in reality (a secretion apparatus plus its effectors; a pilus plus its adhesin). This is the chief architectural limitation of our positive result.
-
-We therefore specify a drop-in successor, a **Set Transformer pooler** [@lee2019settransformer], for future work. Let $X \in \mathbb{R}^{P\times d}$ be the per-protein embeddings. Rather than scoring each protein independently, we apply $L$ *induced set-attention blocks* (ISAB): $H = \mathrm{ISAB}_m(X)$, where $m \ll P$ learnable inducing points reduce the $O(P^2)$ self-attention to $O(Pm)$ while still letting proteins attend to one another, so the representation can encode joint presence. A *pooling-by-multihead-attention* head (PMA) with a single seed then produces the genome vector $z = \mathrm{PMA}_1(H) \in \mathbb{R}^d$. The per-protein attribution we use in §5 survives because PMA's seed-to-protein attention gives the same top-$k$ readout, but the genome vector now reflects protein *combinations*, not a linear mix.
-
-Three predictions make this a falsifiable next experiment, not a hand-wave: (i) on **machinery** traits the ISAB pooler should *exceed* the attention-pool gain, with the surplus largest where the trait is known to be multi-gene (cultivation medium, AMR); (ii) on **compositional** traits it should match mean-pool, since no interaction structure exists to exploit; (iii) the §5 ablation should shift from "remove $k$ proteins" toward "remove a *co-occurring set*," with single-protein ablations losing potency as the model distributes the signal across an interacting module. Confirming (i)--(iii) would convert this paper's *validated-mechanism* result into a *new-method* result; failing (iii) would itself be informative about whether bacterial trait signal is truly combinatorial or merely additive at ESM-2 resolution.
-
 # Discussion and Limitations
 
 **What the results say.** Set-pooling architecture for genomic prediction should be chosen by trait localization, not convention: attention is worth its cost for gene-determined traits and not for diffuse ones, and for pathogenicity it works by locating the responsible genes. This gives practitioners a predictive rule and gives the field a mechanistic check (external attribution + ablation) that any genome model can adopt.
 
+**What this public manuscript does not disclose.** This version intentionally omits nonessential deployment details, checkpoint distribution, large feature-store locations, production inference workflows, and future cultivation-recipe system designs. It also avoids specifying any unreleased next-generation architecture beyond the high-level observation that future work should model protein interactions rather than only independent protein weights.
+
 **Limitations, stated plainly.**
 
 - *Covariate shift is unsolved and dominates.* The benefit evaporates at family-level holdout (§4.2). For the uncultured-organism application that motivates genomic trait models, this is the result that matters most, and it is negative for the pooling lever.
-- *Weighted sum, not combinations.* The validated model up-weights individual proteins; it cannot represent interactions. §6 specifies the successor but does not yet evaluate it.
+- *Weighted sum, not combinations.* The validated model up-weights individual proteins; it does not model protein interactions.
 - *Enrichment, not coverage.* 68% of top-attended proteins are not VFDB hits; VFDB catalogs only *known* factors, so this is expected and our claim is strictly about enrichment.
-- *Single encoder scale.* All results use one ESM-2 size (150M, 640-d); whether a larger encoder sharpens the gradient is untested.
+- *Single encoder scale.* All results use one ESM-2 size; whether a larger encoder sharpens the gradient is untested.
 - *Statistical scope.* The gradient uses 3 seeds; the human-head within-genome control is underpowered ($n{=}16$). The animal head and between-class tests are well-powered ($p<10^{-6}$); the small compositional effects ($\le0.02$ $\Delta$F1) are within their own noise and we do not over-interpret them.
 
 **Why this is a useful result.** The positive half (a validated, mechanistically-explained predictability gradient) is a clean architectural insight; the negative half (it does not survive clade shift) redirects effort from the pooling question, which we consider resolved, to the generalization question, which we do not.
 
+# Data and Code Availability
+
+The text, tables, and figures are copyright © 2026 Miyu Horiuchi, all rights reserved unless a later publication agreement states otherwise. Reuse permissions for software, trained models, datasets, and deployment artifacts are handled separately from this manuscript.
+
+For academic review, the trait-class definitions, split definitions, evaluation protocol, and summary statistics are described here. Supporting materials sufficient for independent audit can be made available to editors, reviewers, or collaborators under appropriate review terms. Full code, trained checkpoints, large feature stores, production inference assets, and cultivation-recipe tooling will be addressed in separate release materials.
+
 # Conclusion
 
 Pooling a genome's proteins is an inductive-bias choice, and the right choice is a measurable function of the trait: attention for localized "machinery" traits, mean for diffuse "compositional" traits. We validated this gradient with seeds, showed for pathogenicity that the attention concentrates on bona fide virulence factors and the prediction depends on them, and found the entire advantage contingent on staying within taxonomic distribution. Reading the right genes is achievable; reading them for organisms unlike anything previously characterized is the open problem.
-
-# Reproducibility {-}
-
-Code is public (`model.py --per-protein`; `extract_attention.py`, `vfdb_enrichment.py`, `ablate_attention.py`). The per-protein feature set (19,592 genomes, 105 GB), labels, splits, vocabularies, trained checkpoints, and per-genome attention tables are released; VFDB and diamond are public. All numbers in the tables regenerate from the released checkpoints and scripts. Trait-class assignment, split definitions, and the $E<10^{-5}$ threshold are pre-specified.
 
 # References {-}

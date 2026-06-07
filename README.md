@@ -12,6 +12,73 @@ Most microbial life is *dark matter*: an estimated **99% of microbial species ha
 
 ---
 
+## Try it / read it
+
+| Artifact | Link | Purpose |
+|---|---|---|
+| **Public dashboard** | [miyuiu/microbe-foundation](https://miyuiu-microbe-foundation.hf.space) | Paste/upload FASTA, inspect sequence QC, and preview trait + cultivation-medium triage. |
+| **Research showcase** | [miyuiu/predictability-gradient](https://miyuiu-predictability-gradient.hf.space) | Interactive companion for the predictability-gradient result, attribution, VFDB enrichment, and ablation. |
+| **Clean academic manuscript** | [`paper/predictability_gradient_academic.pdf`](paper/predictability_gradient_academic.pdf) | Professional paper-style PDF for review/sharing. |
+| **Manuscript source** | [`paper/predictability_gradient_academic.md`](paper/predictability_gradient_academic.md) | Editable source for the clean academic manuscript. |
+
+## Visual summary
+
+### System map
+
+```mermaid
+flowchart LR
+    A[Genome / MAG / SAG] --> B[Protein calling]
+    B --> C1[Mean-pooled ESM-2 genome vector]
+    B --> C2[Per-protein ESM-2 set]
+    B --> C3[eggNOG / KEGG pathway features]
+
+    C1 --> D1[Mean-pool baseline]
+    C2 --> D2[Attention-pool model]
+    C3 --> D3[Hybrid / recipe roadmap]
+
+    D1 --> E[21 BacDive trait heads]
+    D2 --> E
+    D3 --> F[Cultivation medium / recipe ranking]
+
+    D2 --> G[Attention extraction]
+    G --> H[VFDB enrichment]
+    G --> I[Top-protein ablation]
+```
+
+### Predictability-gradient result
+
+```mermaid
+xychart-beta
+    title "Attention gain over mean-pool by trait class"
+    x-axis ["species", "genus", "family"]
+    y-axis "Delta F1" 0 --> 0.09
+    bar "Compositional" [0.021, 0.016, 0.009]
+    bar "Machinery" [0.083, 0.067, 0.010]
+```
+
+The chart above is the core scientific result: attention helps most when the trait is decided by a small number of genes, and the advantage disappears when the test clade is too far from training.
+
+### Pathogenicity attribution result
+
+```mermaid
+flowchart LR
+    A[Held-out pathogenic genome<br/>~3,800 proteins] --> B[Attention pool]
+    B --> C[Top 5 proteins<br/>81% attention mass]
+    C --> D[VFDB match test<br/>28.1% VF vs 5.9% random]
+    C --> E[Ablation test<br/>22.7% pathogenic calls flip]
+    D --> F[Mechanistic support]
+    E --> F
+```
+
+| Evidence type | Result | Interpretation |
+|---|---:|---|
+| Attention concentration | Top-5 proteins carry **81%** of attention | The model is selecting a small genomic subset, not averaging diffusely. |
+| Within-genome VFDB enrichment | **28.1%** VF vs **5.9%** random, p = **2.5×10⁻⁷** | Top-attended proteins are ~5× enriched for known virulence machinery. |
+| Between-class enrichment | OR = **3.2**, p = **6.8×10⁻¹⁴** | The enrichment is stronger in pathogenic than non-pathogenic genomes. |
+| Causal ablation | Removing top-5 proteins flips **22.7%** of pathogenic calls | The prediction depends on the selected proteins. |
+
+---
+
 ## Why this matters
 
 - **The unculturable 99%.** The vast majority of microbes resist cultivation because we don't know their growth requirements. Locked inside that dark matter is most of nature's undiscovered antibiotics, enzymes, and metabolic chemistry.
@@ -313,7 +380,12 @@ microbe-foundation/
 │   └── data/                         #   BacDive, MediaDive clients
 ├── reference_data/                   # precomputed MediaDive catalogs
 ├── docs/                             # design notes + GPU runbooks
-├── paper/                            # draft + auto-generated tables
+├── paper/                            # manuscripts + auto-generated tables
+│   ├── predictability_gradient_academic.{md,pdf} # clean academic manuscript
+│   └── tables/                       # regenerated benchmark/result tables
+├── spaces/                           # Hugging Face Space bundles
+│   ├── public_tool/                  # public FASTA dashboard
+│   └── research_showcase/            # interactive paper companion
 ├── scripts/run_all.sh                # one-command pipeline
 ├── RELATED_WORK.md                   # positioning vs prior work
 ├── BACBENCH_SCOPE.md                 # BacBench competitor analysis
@@ -354,7 +426,7 @@ Code: MIT. Data: BacDive and MediaDive content are CC-BY 4.0 (cite Schober et al
 
 ## Citation
 
-If you use this benchmark, please cite the eventual paper (currently a draft in `paper/paper.md`). Until then:
+If you use this benchmark, please cite the eventual paper (current clean manuscript: `paper/predictability_gradient_academic.pdf`). Until then:
 
 ```
 Horiuchi, M. (2026). microbe-foundation: predicting microbial species

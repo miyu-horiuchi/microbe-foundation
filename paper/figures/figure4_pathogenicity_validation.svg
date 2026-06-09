@@ -12,6 +12,8 @@
     <text x="440" y="30" text-anchor="middle" font-size="15" fill="#555" font-style="italic">the selected proteins are enriched for virulence and affect the prediction</text>
     <text x="250" y="72" text-anchor="middle" font-size="14" font-weight="600" fill="#e8763a">external enrichment</text>
     <text x="630" y="72" text-anchor="middle" font-size="14" font-weight="600" fill="#d64070">causal ablation</text>
+    <text x="250" y="95" text-anchor="middle" font-size="10.5" fill="#888">top-5 attention mass = 81%</text>
+    <text x="630" y="95" text-anchor="middle" font-size="10.5" fill="#888">masking tests prediction dependence</text>
   </g>
 
   <!-- left bar chart -->
@@ -45,16 +47,5 @@
     <text x="655" y="337" text-anchor="middle" font-size="10.5" fill="#777">mask top-5</text>
     <text x="630" y="365" text-anchor="middle" font-size="11" fill="#888">pathogenic calls flipped</text>
     <text x="630" y="386" text-anchor="middle" font-size="11" fill="#888">vs random masking, p = 1.2e-4</text>
-  </g>
-
-  <!-- attention mini-spectrum -->
-  <g transform="translate(142 84)">
-    <text x="0" y="0" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#999">attention mass concentrates on five proteins</text>
-    <circle cx="0" cy="20" r="9" fill="#e8763a" opacity="0.9"/>
-    <circle cx="28" cy="20" r="7" fill="#e8763a" opacity="0.75"/>
-    <circle cx="52" cy="20" r="5.8" fill="#e8763a" opacity="0.62"/>
-    <circle cx="72" cy="20" r="4.6" fill="#e8763a" opacity="0.5"/>
-    <circle cx="90" cy="20" r="3.8" fill="#e8763a" opacity="0.42"/>
-    <text x="115" y="24" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#777">81%</text>
   </g>
 </svg>

@@ -35,6 +35,31 @@ This hypothesis is attractive because it is *falsifiable inside a single archite
 
 We are explicit about what this is *not*: not a new encoder (we freeze ESM-2), not a state-of-the-art benchmark sweep, and not a solution to cross-clade generalization, which our own results show is the open problem.
 
+**Figure 1. Study schematic.** The experiment keeps the protein encoder, task heads, loss, and data fixed, and changes only the genome-level pooling operator.
+
+```text
+[NCBI genomes + BacDive labels]
+              |
+              v
+    [ORF prediction per genome]
+              |
+              v
+ [frozen ESM-2 protein vectors: x1...xP]
+              |
+      +-------+--------+
+      |                |
+      v                v
+ [mean-pool]     [attention-pool]
+      |                |
+      +-------+--------+
+              |
+              v
+       [21 trait heads]
+              |
+              v
+[species / genus / family held-out tests]
+```
+
 # Related Work
 
 **Genomic and protein foundation models.** ESM-2 [@lin2023esm2] provides the frozen per-protein embeddings we pool. Genome-level models, Bacformer [@wiatrak2025bacformer], MicroGenomer [@microgenomer2025], and BacPT [@bacpt2026], aggregate protein or gene representations for phenotype prediction but report benchmark accuracy without analyzing the pooling step or attributing predictions to specific genes. Our contribution is orthogonal and complementary: we hold the encoder fixed and study the aggregation choice and its mechanism.
@@ -71,6 +96,30 @@ A shared MLP encoder feeds 21 linear heads under a **masked multi-task loss** th
 
 Both share encoder, heads, and loss; only pooling differs. This deliberately narrow comparison is the reason the result can be interpreted as a pooling effect rather than an encoder effect.
 
+**Figure 2. Pooling bias.** Mean-pooling is a diffuse-signal prior; attention-pooling is a localized-signal prior.
+
+```text
+Diffuse compositional trait
+---------------------------
+signal spread across many proteins
+
+proteins: [=][=][=][=][=][=][=]
+weights:   1  1  1  1  1  1  1
+
+expected best bias: mean-pool
+example traits: Gram stain, shape, oxygen tolerance
+
+Localized machinery trait
+-------------------------
+signal concentrated in few genes
+
+proteins: [.][.][#][.][.][#][.]
+weights:   0  0  H  0  0  H  0
+
+expected best bias: attention-pool
+example traits: pathogenicity, medium, AMR phenotype
+```
+
 ## Evaluation regimes
 
 We use **species-, genus-, and family-held-out** splits: no species (resp. genus, family) appears in more than one fold. Family-held-out approximates prediction for clades unlike anything seen in training, the regime relevant to uncultured "microbial dark matter." We report macro-F1 per head and, for the gradient, $\Delta\mathrm{F1} = \mathrm{F1}_{\text{attn}} - \mathrm{F1}_{\text{mean}}$, aggregated within trait class, mean $\pm$ std over **3 seeds**.
@@ -89,6 +138,23 @@ We use **species-, genus-, and family-held-out** splits: no species (resp. genus
 
 At the species and genus levels the machinery gain exceeds the compositional gain by ~4x, with **non-overlapping error bars** ($0.083\pm0.012$ vs $0.021\pm0.002$). The compositional gain is small, positive, and tight; attention does not *hurt* diffuse traits, it simply adds little, exactly as the hypothesis predicts: when signal is genome-wide, a weighted average and a flat average converge. The single largest per-head effects are pathogenicity (animal F1 $0.26\to0.50$, human $0.16\to0.32$ at species), the most gene-localized traits in the set.
 
+**Figure 3. Observed predictability gradient.** Attention gain is large for machinery traits within taxonomic distribution and disappears under family-level shift.
+
+```text
+Delta F1 from attention over mean-pooling
+
+species  compositional  +0.021 |#####
+         machinery      +0.083 |#####################
+
+genus    compositional  +0.016 |####
+         machinery      +0.067 |#################
+
+family   compositional  +0.009 |##
+         machinery      +0.010 |##
+
+         key: each # is approximately 0.004 F1
+```
+
 ## The gradient collapses under covariate shift
 
 The most consequential result is the family row. As the test distribution moves from same-species to same-family to *novel-family* organisms, the machinery advantage decays monotonically ($+0.083 \to +0.067 \to +0.010$) until the gradient is effectively gone (gap $+0.001$). Mean- and attention-pooling become indistinguishable precisely in the regime that matters for uncultured organisms. This localizes the bottleneck: the limiting factor is not how we pool proteins but whether *any* protein-set representation transfers across evolutionary distance.
@@ -96,6 +162,30 @@ The most consequential result is the family row. As the test distribution moves 
 # Does the Attention Find the Right Genes?
 
 A performance gain does not establish that attention is mechanistically meaningful; attention weights need not be faithful [@jain2019attention]. We validate the largest-gain trait, **pathogenicity**, against external ground truth (VFDB [@liu2022vfdb], 4,663 experimentally-verified virulence factors) with two matched controls and a causal ablation. We train single-task attention-pool models per pathogenicity head (so the shared pool specializes); both discriminate well on held-out test genomes (AUROC 0.88 animal, 0.85 human).
+
+**Figure 4. Mechanistic validation path.** The pathogenicity result is evaluated by external database enrichment and by perturbing the selected proteins.
+
+```text
+held-out pathogenicity genome
+          |
+          v
+ attention ranks all proteins
+          |
+          v
+ top-5 attended proteins
+          |
+          +-------------------------------+
+          |                               |
+          v                               v
+ VFDB match test                    ablation test
+ Are top proteins known             Remove top-5 proteins and
+ virulence factors more often       re-run the prediction.
+ than matched controls?
+          |                               |
+          v                               v
+ enrichment: 28.1% vs 5.9%          flips: 22.7% of pathogenic calls
+ within genome, p=2.5e-7            vs random masking, p=1.2e-4
+```
 
 ## Attention concentrates
 

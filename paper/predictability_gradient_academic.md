@@ -1,12 +1,12 @@
 ---
-title: "When Does Attention Help? A Predictability Gradient for Genomic Trait Prediction, Validated by Virulence-Factor Attribution"
+title: "When Does Attention Help in Genomic Trait Prediction?"
 author:
   - |
     Miyu Horiuchi  
     m@replicater.xyz
 date: 2026-06-05
 abstract: |
-  A bacterial genome is a *set* of proteins, and predicting an organism's phenotype from that set requires pooling thousands of protein representations into a fixed-size genome vector. The default choice, mean-pooling, treats every protein equally; learned attention-pooling can instead concentrate on a few. We ask a question usually answered by default rather than by evidence: **when does the pooling choice matter, and why?** We propose the *predictability gradient* hypothesis: pooling architecture matters in proportion to how *localized* a trait's genomic signal is. Compositional traits (e.g. oxygen tolerance, cell shape) reflect diffuse genome-wide signal and should be insensitive to pooling; machinery traits (e.g. pathogenicity, nutrient requirements) are determined by a handful of decisive genes and should benefit from attention. We test this on 19,592 bacterial genomes across 21 traits and three taxonomic generalization regimes. With three seeds per configuration, attention-pooling improves machinery traits ~4x more than compositional traits (species-level gap in F1 gain $+0.062 \pm 0.011$ vs $+0.001$ at family level), confirming the gradient and revealing that the advantage *collapses entirely under family-level covariate shift*. We then show the mechanism is genuine: for pathogenicity, the model concentrates 81% of its attention on five proteins, and those proteins are 5x enriched for known virulence factors versus random proteins in the same genome (Wilcoxon $p=2.5\times10^{-7}$) and 3.2x versus non-pathogenic genomes ($p=6.8\times10^{-14}$); ablating them flips 23% of pathogenic predictions. The attention does not merely correlate with virulence; it locates adhesins, fimbrial ushers, and invasion loci, and the prediction depends on them. Our results give a predictive, mechanistically-grounded rule for when un-pooled protein representations are worth their cost, and identify cross-clade generalization, not pooling, as the binding constraint for genomic foundation models.
+  A bacterial genome is a *set* of proteins, and predicting phenotype from that set requires pooling thousands of protein representations into one genome vector. We ask when the pooling choice matters. We propose the *predictability gradient* hypothesis: adaptive pooling helps in proportion to how *localized* a trait's genomic signal is. Diffuse compositional traits should be largely insensitive to learned attention; localized machinery traits should benefit. We test this by freezing ESM-2 protein embeddings and varying only the pooling operator across 19,592 bacterial genomes, 21 traits, three taxonomic holdout regimes, and three seeds. Attention-pooling improves machinery traits ~4x more than compositional traits at species/genus holdout, but the advantage collapses at family holdout, identifying cross-clade generalization as the binding constraint. We add two reviewer-facing diagnostics: a scalar-trait gene-family localization audit, which is directionally consistent with the gradient, and a taxonomy-majority baseline, which exposes substantial clade confounding on pathogenicity. Finally, for pathogenicity, top-attended proteins are enriched for VFDB virulence factors under matched controls and predictions are intervention-sensitive to masking those proteins. The result is not a new pooling method; it is a diagnostic framework for deciding when set aggregation architecture is worth its cost and when distribution shift overwhelms it.
 geometry: margin=1in
 fontsize: 10pt
 linkcolor: blue
@@ -24,14 +24,15 @@ We formalize this as the **predictability gradient** hypothesis:
 
 > The benefit of attention-pooling over mean-pooling for a trait is proportional to how *localized* that trait's genomic determinants are. Diffuse "compositional" traits gain little; gene-specific "machinery" traits gain much.
 
-This hypothesis is attractive because it is *falsifiable inside a single architecture*: hold the encoder fixed, swap only the pooling, and measure the gain as a function of trait class. We do exactly this, and add two things a benchmark number cannot provide. First, we vary the **generalization regime** (species-, genus-, family-held-out splits), turning the experiment into a test of whether the gradient survives distribution shift. Second, for the trait with the largest gain, pathogenicity, we ask whether the attention is *mechanistically real*: does it concentrate on the actual virulence machinery, and does the prediction causally depend on it? This converts a performance claim ("attention helps") into a scientific one ("attention helps because it finds the responsible genes").
+This hypothesis is attractive because it is *falsifiable inside a single architecture*: hold the encoder fixed, swap only the pooling, and measure the gain as a function of trait localization. We do exactly this, and add three things a benchmark number cannot provide. First, we vary the **generalization regime** (species-, genus-, family-held-out splits), turning the experiment into a test of whether the gradient survives distribution shift. Second, we add a preliminary **gene-family localization audit** on an eggNOG subset, reducing the risk that the compositional/machinery split is only a hand-labeled story. Third, for the trait with the largest gain, pathogenicity, we ask whether the attention is *mechanistically real*: does it concentrate on virulence machinery, and is the model's prediction intervention-sensitive to removing those proteins? This converts a performance claim ("attention helps") into a scientific one ("attention helps because it finds relevant genes"), while avoiding claims of organism-level biological causality.
 
 **Contributions.**
 
 1. **The predictability-gradient hypothesis and its validation.** A testable account of when set-pooling architecture matters for genomic prediction, confirmed on 19,592 genomes / 21 traits with three seeds: attention helps machinery traits ~4x more than compositional traits, with non-overlapping error bars (§4).
-2. **A covariate-shift result.** The gradient is strong within taxonomic distribution and vanishes at the family level (gain gap $+0.062 \to +0.001$). The binding constraint for genomic foundation models is cross-clade generalization, not pooling (§4.2).
-3. **Mechanistic attribution against a virulence-factor database.** For pathogenicity, attention concentrates (81% mass on 5 of ~3,800 proteins) and is enriched for VFDB virulence factors under two controls; ablation shows the prediction depends on them; the hits are coherent adherence/invasion machinery (§5).
-4. **An evaluation protocol for trait-localization hypotheses.** The paper defines a compact, reusable experimental pattern for testing whether architectural changes help because the relevant phenotype is diffuse, localized, or shifted out of distribution.
+2. **A quantitative localization audit.** On a 6,738-genome eggNOG subset, a scalar-trait gene-family concentration proxy is directionally correlated with species-level attention gain (Spearman $\rho=0.447$, $p=0.083$), supporting but not yet completing the main-track version of the localization claim (§4.2).
+3. **A covariate-shift and taxonomy-confounding result.** The gradient is strong within taxonomic distribution and weakens at family level, while a taxonomy-majority baseline reveals that pathogenicity is heavily clade-confounded (§4.3--4.4).
+4. **Mechanistic attribution against a virulence-factor database.** For pathogenicity, attention concentrates (81% mass on 5 of ~3,800 proteins) and is enriched for VFDB virulence factors under two controls; masking shows model dependence on those proteins; the hits are coherent adherence/invasion machinery (§5).
+5. **An evaluation protocol for trait-localization hypotheses.** The paper defines a compact, reusable experimental pattern for testing whether architectural changes help because the relevant phenotype is diffuse, localized, taxonomically confounded, or shifted out of distribution.
 
 We are explicit about what this is *not*: not a new encoder (we freeze ESM-2), not a state-of-the-art benchmark sweep, and not a solution to cross-clade generalization, which our own results show is the open problem.
 
@@ -43,7 +44,7 @@ We are explicit about what this is *not*: not a new encoder (we freeze ESM-2), n
 
 **Microbial trait prediction.** Classical predictors (Traitar [@weimann2016traitar], Genome Properties [@richardson2019genomeprops], PathogenFinder [@cosentino2013pathogenfinder]) use hand-engineered gene-content features and per-trait classifiers; curated random-forest baselines on BacDive traits remain strong [@koblitz2025traits]. These methods implicitly assume localized, gene-presence signal, consistent with our "machinery" pole, but do not contrast it against a diffuse-signal baseline or quantify when the assumption pays off.
 
-**Attention as explanation.** A literature cautions that attention weights are not, on their own, faithful explanations [@jain2019attention; @wiegreffe2019attention]. We take this seriously: our mechanistic claim does not rest on attention magnitudes but on (i) *external* validation against a curated virulence-factor database [@liu2022vfdb] under matched controls and (ii) *causal* ablation. We flag where ablation is partly mechanical (§5.3, §6).
+**Attention as explanation.** A literature cautions that attention weights are not, on their own, faithful explanations [@jain2019attention; @wiegreffe2019attention]. We take this seriously: our mechanistic claim does not rest on attention magnitudes but on (i) *external* validation against a curated virulence-factor database [@liu2022vfdb] under matched controls and (ii) intervention masking. We flag where masking is partly mechanical (§5.3, §6).
 
 **Set learning.** Attention-pooling over instances is standard in multiple-instance learning [@ilse2018attention], and permutation-invariant set attention is formalized by the Set Transformer [@lee2019settransformer]. Our novelty is not the existence of attention over sets but tying its benefit to a measurable property of the label (trait localization) and validating the learned attention against ground-truth biology.
 
@@ -53,7 +54,7 @@ We are explicit about what this is *not*: not a new encoder (we freeze ESM-2), n
 
 Labels are drawn from BacDive [@schober2025bacdive], yielding **21 prediction heads** across seven biological blocks (morphology, physiology, growth conditions, cultivation, safety, ecology, chemotaxonomy). For each strain with an NCBI genome we predict open reading frames with pyrodigal [@larralde2022pyrodigal] and embed each protein independently with a frozen ESM-2 encoder, producing a ragged protein-representation set per genome. A mean-pooled baseline feature is computed from the same protein representations, isolating pooling as the only experimental variable. The training corpus contains 19,592 genomes and approximately 82M protein representations.
 
-This manuscript describes the scientific evaluation. A reproducibility package covering the evaluation protocol, aggregate results, and supporting analysis artifacts will be provided with the final version.
+This manuscript describes the scientific evaluation; the repository contains the split definitions, run summaries, generated audit tables, and scripts used for the analyses reported below.
 
 ## Trait taxonomy: compositional vs machinery
 
@@ -63,6 +64,8 @@ We pre-register a partition of the 21 heads into **compositional** (signal expec
 - **Machinery (8):** pathogenicity (human), pathogenicity (animal), cultivation medium, carbon utilization, metabolite production, antimicrobial-resistance phenotype, biosafety level, fatty-acid (FAME) profile.
 
 Two metadata heads (isolation source, country) are excluded from the gradient analysis as they are not biological traits.
+
+Because the hand partition is a potential reviewer concern, we also compute a preliminary **gene-family localization proxy** on the available eggNOG audit subset (`data/eggnog_features_6738.npz`, 6,738 genomes $\times$ 24,854 orthologous groups). For each scalar trait, we compute a supervised gene-family association vector from class-conditional feature-rate differences, then summarize how concentrated that vector is. The main proxy, `top10_share`, is the fraction of association mass carried by the ten strongest gene families; `n80` is the number of gene families needed to reach 80% of association mass. This audit excludes multilabel and regression-vector heads, so it is not a substitute for the full main-track experiment, but it makes the localization hypothesis measurable rather than purely categorical.
 
 ## Model
 
@@ -78,6 +81,8 @@ Both share encoder, heads, and loss; only pooling differs. This deliberately nar
 ## Evaluation regimes
 
 We use **species-, genus-, and family-held-out** splits: no species (resp. genus, family) appears in more than one fold. Family-held-out approximates prediction for clades unlike anything seen in training, the regime relevant to uncultured "microbial dark matter." We report macro-F1 per head and, for the gradient, $\Delta\mathrm{F1} = \mathrm{F1}_{\text{attn}} - \mathrm{F1}_{\text{mean}}$, aggregated within trait class, mean $\pm$ std over **3 seeds**.
+
+Absolute per-trait results, including mean-pool score, attention-pool score, standard deviation, and $\Delta$ for all available heads and splits, are generated in `paper/tables/10_pooling_absolute_results.md`. This table is necessary because $\Delta$F1 alone can be misleading when absolute performance is low.
 
 # The Predictability Gradient
 
@@ -95,13 +100,23 @@ At the species and genus levels the machinery gain exceeds the compositional gai
 
 ![**Observed predictability gradient.** Attention gain is large for machinery traits within taxonomic distribution and disappears under family-level shift.](figures/figure3_predictability_gradient.png){width=100%}
 
+## A preliminary localization audit is directionally consistent
+
+The scalar-trait eggNOG audit gives preliminary quantitative support for the same pattern. The top-10 gene-family association share is positively correlated with species-level attention gain (Spearman $\rho=0.447$, $p=0.083$, $n=16$ scalar traits), and the two pathogenicity heads sit in the high-gain/high-localization region. This is not yet the full NeurIPS/ICML-strength localization result: the audit excludes multilabel heads such as cultivation medium and AMR phenotype, uses a simple class-conditional association score rather than a sparse predictive model, and covers only the available eggNOG subset. Its value is that it turns a subjective biological split into an explicit measurement, and defines the next experiment: repeat this with sparse gene-family predictors for every output label.
+
+![**Preliminary localization audit.** A scalar-trait gene-family concentration proxy is directionally correlated with attention gain, but the audit subset is not yet sufficient to replace the biological trait partition.](figures/figure5_localization_gain.png){width=100%}
+
 ## The gradient collapses under covariate shift
 
 The most consequential result is the family row. As the test distribution moves from same-species to same-family to *novel-family* organisms, the machinery advantage decays monotonically ($+0.083 \to +0.067 \to +0.010$) until the gradient is effectively gone (gap $+0.001$). Mean- and attention-pooling become indistinguishable precisely in the regime that matters for uncultured organisms. This localizes the bottleneck: the limiting factor is not how we pool proteins but whether *any* protein-set representation transfers across evolutionary distance.
 
+## Taxonomy is a serious confound
+
+We add a deliberately simple taxonomy-majority baseline as a diagnostic. For each test genome, it predicts from the most specific taxonomic group observed in training (species, then genus, family, order, class, phylum, domain), falling back to the train-set majority. This baseline is not a model we advocate; it asks how much of the label can be explained by clade identity alone. The answer is substantial. On species-held-out pathogenicity, the taxonomy baseline reaches macro-F1 0.730 for animal pathogenicity and 0.647 for human pathogenicity, exceeding the attention model's 0.510 and 0.333 in the same split. Under family holdout, taxonomy still achieves 0.495 and 0.482 macro-F1 while the attention model falls to 0.190 and 0.063. These numbers do not invalidate the VFDB attribution result, but they sharpen the interpretation: pathogenicity prediction in BacDive is simultaneously a localized-gene task and a taxonomically confounded task. Stronger main-track evaluation should therefore use within-genus/family matched pathogenic/non-pathogenic controls and close-homolog removal.
+
 # Does the Attention Find the Right Genes?
 
-A performance gain does not establish that attention is mechanistically meaningful; attention weights need not be faithful [@jain2019attention]. We validate the largest-gain trait, **pathogenicity**, against external ground truth (VFDB [@liu2022vfdb], 4,663 experimentally-verified virulence factors) with two matched controls and a causal ablation. We train single-task attention-pool models per pathogenicity head (so the shared pool specializes); both discriminate well on held-out test genomes (AUROC 0.88 animal, 0.85 human).
+A performance gain does not establish that attention is mechanistically meaningful; attention weights need not be faithful [@jain2019attention]. We validate the largest-gain trait, **pathogenicity**, against external ground truth (VFDB [@liu2022vfdb], 4,663 experimentally-verified virulence factors) with two matched controls and intervention masking. We train single-task attention-pool models per pathogenicity head (so the shared pool specializes); both discriminate well on held-out test genomes (AUROC 0.88 animal, 0.85 human).
 
 ![**Mechanistic validation path.** The pathogenicity result is evaluated by external database enrichment and by perturbing the selected proteins.](figures/figure4_pathogenicity_validation.png){width=100%}
 
@@ -122,17 +137,19 @@ We map each protein's attention rank to its amino-acid sequence and call a prote
 
 The proteins attention selects are ~5x more likely to be known virulence factors than random proteins in the same genome, and the enrichment is 3.2x stronger in pathogenic than non-pathogenic genomes. The human head replicates (between-class OR 3.1, $p=3.8\times10^{-5}$; within-genome $p=0.034$ at $n{=}16$). The hits are not database noise: the most frequently selected VFs are coherent **adherence/invasion machinery**, including fimbrial ushers `papC`/`mrkC`, filamentous hemagglutinin `fhaB`, attachment-invasion locus `ail`, type-IV pilus `pilQ`, and flagellar `fliR`.
 
-## The prediction causally depends on them
+## The prediction is intervention-sensitive to them
 
-Masking the top-5 attended proteins (of ~3,800) and re-predicting flips **22.7% of pathogenic calls** to non-pathogenic (animal; Wilcoxon vs random-protein masking $p=1.2\times10^{-4}$); the human head replicates (12.5%, $p=9\times10^{-3}$). Masking proteins ranked 6--10 produces a 27.5x smaller drop; the dependence is specific to the very top proteins. We note honestly that a top-vs-random ablation gap is *partly mechanical*: attention-pooling is a weighted sum, so removing high-weight elements changes the output more by construction. The non-trivial facts are therefore the **absolute** effect (removing 5 of ~3,800 proteins overturns a quarter of predictions) and its conjunction with §5.2 (those 5 proteins are the virulence machinery). Together they support a causal-mechanistic reading that neither establishes alone.
+Masking the top-5 attended proteins (of ~3,800) and re-predicting flips **22.7% of pathogenic calls** to non-pathogenic (animal; Wilcoxon vs random-protein masking $p=1.2\times10^{-4}$); the human head replicates (12.5%, $p=9\times10^{-3}$). Masking proteins ranked 6--10 produces a 27.5x smaller drop; the dependence is specific to the very top proteins. We note honestly that a top-vs-random masking gap is *partly mechanical*: attention-pooling is a weighted sum, so removing high-weight elements changes the output more by construction. The non-trivial facts are therefore the **absolute** effect (removing 5 of ~3,800 proteins overturns a quarter of predictions) and its conjunction with §5.2 (those 5 proteins are the virulence machinery). Together they support model-level intervention sensitivity, not organism-level biological causality.
 
 # Discussion and Limitations
 
-**What the results say.** Set-pooling architecture for genomic prediction should be chosen by trait localization, not convention: attention is worth its cost for gene-determined traits and not for diffuse ones, and for pathogenicity it works by locating the responsible genes. This gives practitioners a predictive rule and gives the field a mechanistic check (external attribution + ablation) that any genome model can adopt.
+**What the results say.** Set-pooling architecture for genomic prediction should be chosen by trait localization, not convention: attention is worth its cost for gene-determined traits and not for diffuse ones, and for pathogenicity it often attends to virulence-relevant proteins. This gives practitioners a predictive rule and gives the field a mechanistic check (external attribution + masking) that any genome model can adopt.
 
 **Limitations, stated plainly.**
 
 - *Covariate shift is unsolved and dominates.* The benefit evaporates at family-level holdout (§4.2). For the uncultured-organism application that motivates genomic trait models, this is the result that matters most, and it is negative for the pooling lever.
+- *Taxonomy confounding is substantial.* A taxonomy-majority baseline is strong for pathogenicity (§4.4). Future main-track versions should add within-genus/family matched pathogenicity controls and remove close training homologs before making stronger claims about generalizable virulence recognition.
+- *Localization measurement is preliminary.* The current gene-family audit covers scalar traits on the available eggNOG subset only. A stronger submission should fit sparse gene-family predictors for every output label and use those coefficients as the primary localization score.
 - *Weighted sum, not combinations.* The validated model up-weights individual proteins; it does not model protein interactions.
 - *Enrichment, not coverage.* 68% of top-attended proteins are not VFDB hits; VFDB catalogs only *known* factors, so this is expected and our claim is strictly about enrichment.
 - *Single encoder scale.* All results use one ESM-2 size; whether a larger encoder sharpens the gradient is untested.
@@ -142,10 +159,10 @@ Masking the top-5 attended proteins (of ~3,800) and re-predicting flips **22.7% 
 
 # Data and Code Availability
 
-The trait-class definitions, split definitions, evaluation protocol, and summary statistics are described in this manuscript. Supporting materials sufficient for independent audit can be made available to editors and reviewers during review. A public reproducibility package will be prepared with the final version.
+The repository includes the trait schema, label matrix, split definitions, model code, pooling run summaries, VFDB attribution artifacts, and the analysis generator used for the new reviewer-facing tables. The generated audit artifacts cover absolute pooling results, the preliminary localization audit, and the taxonomy-majority baseline. Large protein embedding stores and trained checkpoints are not bundled in this manuscript artifact, but the scripts and identifiers needed to regenerate them are included.
 
 # Conclusion
 
-Pooling a genome's proteins is an inductive-bias choice, and the right choice is a measurable function of the trait: attention for localized "machinery" traits, mean for diffuse "compositional" traits. We validated this gradient with seeds, showed for pathogenicity that the attention concentrates on bona fide virulence factors and the prediction depends on them, and found the entire advantage contingent on staying within taxonomic distribution. Reading the right genes is achievable; reading them for organisms unlike anything previously characterized is the open problem.
+Pooling a genome's proteins is an inductive-bias choice, and the right choice should be predicted from trait localization rather than chosen by convention. In this testbed, attention helps localized machinery traits more than diffuse compositional traits, pathogenicity attention is enriched for bona fide virulence factors, and the entire advantage is constrained by taxonomic shift and clade confounding. Reading the right genes is achievable; proving that they generalize beyond familiar clades is the open problem.
 
 # References {-}

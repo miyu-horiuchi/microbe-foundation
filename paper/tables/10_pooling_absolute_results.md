@@ -1,0 +1,69 @@
+# Table 10 — Absolute mean-pool vs attention-pool results
+
+Mean and standard deviation across available seeds in `runs/`. The reported metric is F1 when available, then macro-F1, then accuracy; RMSE heads are listed but should not be mixed with classification gains.
+
+| Split | Trait | Class | Metric | Mean-pool | Attention-pool | Δ | Seeds |
+|---|---|---|---|---:|---:|---:|---:|
+| family | `amr_phenotype` | machinery | f1 | 0.358 ± 0.008 | 0.347 ± 0.008 | -0.011 | 3 |
+| family | `biosafety_level` | machinery | f1 | 0.634 ± 0.021 | 0.628 ± 0.044 | -0.005 | 3 |
+| family | `carbon_utilization` | machinery | f1 | 0.492 ± 0.005 | 0.487 ± 0.010 | -0.005 | 3 |
+| family | `catalase` | compositional | f1 | 0.922 ± 0.003 | 0.921 ± 0.001 | -0.001 | 3 |
+| family | `cell_shape` | compositional | f1 | 0.139 ± 0.003 | 0.141 ± 0.003 | 0.002 | 3 |
+| family | `country` | metadata | f1 | 0.016 ± 0.001 | 0.017 ± 0.001 | 0.001 | 3 |
+| family | `cultivation_medium` | machinery | f1 | 0.116 ± 0.004 | 0.133 ± 0.011 | 0.017 | 3 |
+| family | `cytochrome_oxidase` | compositional | f1 | 0.887 ± 0.004 | 0.881 ± 0.001 | -0.007 | 3 |
+| family | `fatty_acid_profile` | machinery | rmse | 0.098 ± 0.004 | 0.100 ± 0.005 | 0.002 | 3 |
+| family | `gram_stain` | compositional | f1 | 0.629 ± 0.002 | 0.637 ± 0.002 | 0.008 | 3 |
+| family | `halophily` | compositional | f1 | 0.439 ± 0.004 | 0.440 ± 0.008 | 0.000 | 3 |
+| family | `isolation_source` | metadata | f1 | 0.214 ± 0.018 | 0.232 ± 0.045 | 0.018 | 3 |
+| family | `metabolite_production` | machinery | f1 | 0.075 ± 0.003 | 0.076 ± 0.001 | 0.000 | 3 |
+| family | `motility` | compositional | f1 | 0.570 ± 0.001 | 0.589 ± 0.022 | 0.019 | 3 |
+| family | `oxygen_tolerance` | compositional | f1 | 0.212 ± 0.022 | 0.180 ± 0.027 | -0.032 | 3 |
+| family | `pathogenicity_animal` | machinery | f1 | 0.139 ± 0.022 | 0.190 ± 0.011 | 0.051 | 3 |
+| family | `pathogenicity_human` | machinery | f1 | 0.035 ± 0.006 | 0.063 ± 0.010 | 0.028 | 3 |
+| family | `ph_class` | compositional | f1 | 0.366 ± 0.003 | 0.455 ± 0.015 | 0.089 | 3 |
+| family | `pigmentation` | compositional | f1 | 0.847 ± 0.001 | 0.846 ± 0.001 | -0.001 | 3 |
+| family | `sporulation` | compositional | f1 | 0.796 ± 0.011 | 0.819 ± 0.016 | 0.023 | 3 |
+| family | `temperature_class` | compositional | f1 | 0.328 ± 0.005 | 0.321 ± 0.010 | -0.007 | 3 |
+| genus | `amr_phenotype` | machinery | f1 | 0.370 ± 0.003 | 0.368 ± 0.012 | -0.002 | 3 |
+| genus | `biosafety_level` | machinery | f1 | 0.429 ± 0.011 | 0.479 ± 0.007 | 0.050 | 3 |
+| genus | `carbon_utilization` | machinery | f1 | 0.526 ± 0.006 | 0.539 ± 0.010 | 0.013 | 3 |
+| genus | `catalase` | compositional | f1 | 0.942 ± 0.001 | 0.943 ± 0.001 | 0.000 | 3 |
+| genus | `cell_shape` | compositional | f1 | 0.156 ± 0.004 | 0.174 ± 0.007 | 0.017 | 3 |
+| genus | `country` | metadata | f1 | 0.017 ± 0.001 | 0.016 ± 0.000 | -0.001 | 3 |
+| genus | `cultivation_medium` | machinery | f1 | 0.203 ± 0.003 | 0.247 ± 0.008 | 0.044 | 3 |
+| genus | `cytochrome_oxidase` | compositional | f1 | 0.876 ± 0.005 | 0.874 ± 0.006 | -0.002 | 3 |
+| genus | `fatty_acid_profile` | machinery | rmse | 0.096 ± 0.002 | 0.095 ± 0.001 | -0.001 | 3 |
+| genus | `gram_stain` | compositional | f1 | 0.640 ± 0.001 | 0.641 ± 0.000 | 0.001 | 3 |
+| genus | `halophily` | compositional | f1 | 0.404 ± 0.015 | 0.454 ± 0.021 | 0.050 | 3 |
+| genus | `isolation_source` | metadata | f1 | 0.180 ± 0.011 | 0.176 ± 0.005 | -0.003 | 3 |
+| genus | `metabolite_production` | machinery | f1 | 0.086 ± 0.001 | 0.095 ± 0.004 | 0.008 | 3 |
+| genus | `motility` | compositional | f1 | 0.667 ± 0.007 | 0.702 ± 0.013 | 0.034 | 3 |
+| genus | `oxygen_tolerance` | compositional | f1 | 0.268 ± 0.004 | 0.296 ± 0.016 | 0.028 | 3 |
+| genus | `pathogenicity_animal` | machinery | f1 | 0.058 ± 0.016 | 0.356 ± 0.005 | 0.298 | 3 |
+| genus | `pathogenicity_human` | machinery | f1 | 0.081 ± 0.052 | 0.209 ± 0.004 | 0.128 | 3 |
+| genus | `ph_class` | compositional | f1 | 0.507 ± 0.017 | 0.520 ± 0.005 | 0.012 | 3 |
+| genus | `pigmentation` | compositional | f1 | 0.830 ± 0.005 | 0.837 ± 0.004 | 0.007 | 3 |
+| genus | `sporulation` | compositional | f1 | 0.819 ± 0.008 | 0.846 ± 0.006 | 0.027 | 3 |
+| genus | `temperature_class` | compositional | f1 | 0.508 ± 0.006 | 0.506 ± 0.009 | -0.002 | 3 |
+| species | `amr_phenotype` | machinery | f1 | 0.389 ± 0.011 | 0.380 ± 0.011 | -0.008 | 3 |
+| species | `biosafety_level` | machinery | f1 | 0.453 ± 0.002 | 0.489 ± 0.003 | 0.037 | 3 |
+| species | `carbon_utilization` | machinery | f1 | 0.525 ± 0.007 | 0.545 ± 0.009 | 0.020 | 3 |
+| species | `catalase` | compositional | f1 | 0.945 ± 0.000 | 0.948 ± 0.000 | 0.004 | 3 |
+| species | `cell_shape` | compositional | f1 | 0.175 ± 0.002 | 0.190 ± 0.006 | 0.015 | 3 |
+| species | `country` | metadata | f1 | 0.019 ± 0.001 | 0.020 ± 0.001 | 0.001 | 3 |
+| species | `cultivation_medium` | machinery | f1 | 0.210 ± 0.004 | 0.278 ± 0.015 | 0.068 | 3 |
+| species | `cytochrome_oxidase` | compositional | f1 | 0.840 ± 0.006 | 0.871 ± 0.003 | 0.032 | 3 |
+| species | `fatty_acid_profile` | machinery | rmse | 0.094 ± 0.001 | 0.095 ± 0.003 | 0.000 | 3 |
+| species | `gram_stain` | compositional | f1 | 0.640 ± 0.000 | 0.643 ± 0.001 | 0.002 | 3 |
+| species | `halophily` | compositional | f1 | 0.424 ± 0.006 | 0.465 ± 0.010 | 0.040 | 3 |
+| species | `isolation_source` | metadata | f1 | 0.174 ± 0.013 | 0.193 ± 0.014 | 0.019 | 3 |
+| species | `metabolite_production` | machinery | f1 | 0.100 ± 0.006 | 0.102 ± 0.002 | 0.003 | 3 |
+| species | `motility` | compositional | f1 | 0.702 ± 0.011 | 0.766 ± 0.003 | 0.064 | 3 |
+| species | `oxygen_tolerance` | compositional | f1 | 0.270 ± 0.010 | 0.274 ± 0.003 | 0.004 | 3 |
+| species | `pathogenicity_animal` | machinery | f1 | 0.172 ± 0.084 | 0.510 ± 0.001 | 0.338 | 3 |
+| species | `pathogenicity_human` | machinery | f1 | 0.125 ± 0.011 | 0.333 ± 0.015 | 0.207 | 3 |
+| species | `ph_class` | compositional | f1 | 0.523 ± 0.010 | 0.545 ± 0.013 | 0.021 | 3 |
+| species | `pigmentation` | compositional | f1 | 0.827 ± 0.003 | 0.836 ± 0.002 | 0.009 | 3 |
+| species | `sporulation` | compositional | f1 | 0.898 ± 0.003 | 0.920 ± 0.009 | 0.021 | 3 |
+| species | `temperature_class` | compositional | f1 | 0.488 ± 0.002 | 0.502 ± 0.005 | 0.014 | 3 |

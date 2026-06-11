@@ -22,3 +22,24 @@ def test_euclidean_score_shape():
     X = rng.normal(size=(7, 3))
     s = backend.score(X)
     assert s.shape == (7,)
+
+
+from microbe_model.monitoring.backends import DiffusionBackend
+
+
+def test_diffusion_nystrom_roundtrip():
+    """transform() on the reference reproduces the fitted reference coordinates."""
+    rng = np.random.default_rng(0)
+    ref = rng.normal(size=(150, 5))
+    backend = DiffusionBackend(n_components=6, k=10).fit(ref)
+    coords = backend.transform(ref)
+    assert np.allclose(coords, backend.coords_ref_, atol=1e-8)
+
+
+def test_diffusion_scores_far_higher_than_near():
+    rng = np.random.default_rng(1)
+    ref = rng.normal(size=(200, 5))
+    backend = DiffusionBackend(n_components=6, k=10).fit(ref)
+    near = rng.normal(size=(20, 5))
+    far = rng.normal(size=(20, 5)) + 8.0
+    assert backend.score(far).mean() > backend.score(near).mean()

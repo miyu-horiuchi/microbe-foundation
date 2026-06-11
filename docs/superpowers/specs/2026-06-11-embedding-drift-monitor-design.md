@@ -1,8 +1,31 @@
 # Embedding-Based Drift Monitor & Geometric Verifier — Design
 
 **Date:** 2026-06-11
-**Status:** Approved (Tier 0–1 in scope; Tiers 2–4 designed, deferred)
+**Status:** Implemented & validated (Tier 0–1; Tiers 2–4 designed, deferred)
 **Home:** `microbe_model/monitoring/` (microbe-foundation research repo)
+
+## Result (go/no-go)
+
+Implemented and merged. Family-split validation on `data/esm2_features.npz`
+(reference = held-out genomes of train families; in-distribution negatives = unseen
+strains of train families; positives = test/novel families):
+
+| Backend | AUROC |
+|---|---|
+| **Euclidean k-NN (default)** | **0.757** |
+| Diffusion (10 components) | 0.694 |
+| Diffusion (100 components) | 0.728 |
+
+**Decision: keep the Euclidean backend** (already the `ReferenceManifold` default). The
+diffusion map's dimensionality reduction discards discriminative variance that plain
+k-NN distance in standardized space retains; it does not beat Euclidean even when
+tuned. The curvature-aware hypothesis was worth testing and is honestly rejected on the
+data. `DiffusionBackend` remains in the codebase as a tested, pluggable alternative.
+
+Methodological note discovered while running: the family split assigns whole families
+to train/val/test, so **val families are also novel relative to train** — val genomes
+must NOT be used as in-distribution negatives. Negatives must be held-out genomes of
+*train* families. The harness was corrected accordingly.
 
 ## Motivation
 

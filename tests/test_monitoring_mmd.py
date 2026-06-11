@@ -12,13 +12,24 @@ def test_median_gamma_positive():
     assert median_gamma(X) > 0
 
 
-def test_null_gives_large_pvalue():
-    """Same distribution -> not flagged as different (p well above 0.05)."""
-    rng = np.random.default_rng(1)
-    X = rng.normal(size=(80, 5))
-    Y = rng.normal(size=(80, 5))
-    mmd2, p = mmd_permutation_test(X, Y, n_perm=200, seed=0)
-    assert p > 0.05
+def test_null_type_i_is_calibrated():
+    """Under the null (same distribution), the rejection rate stays near alpha.
+
+    A single null draw rejecting at p<0.05 is expected ~5% of the time and proves
+    nothing; the meaningful property is that across many independent null draws the
+    fraction with p<0.05 hovers around the nominal 0.05 — i.e. the permutation test
+    controls the type-I error rate.
+    """
+    n_draws = 200
+    rejections = 0
+    for s in range(n_draws):
+        rng = np.random.default_rng(1000 + s)
+        X = rng.normal(size=(80, 5))
+        Y = rng.normal(size=(80, 5))
+        _, p = mmd_permutation_test(X, Y, n_perm=100, seed=0)
+        rejections += p < 0.05
+    rate = rejections / n_draws
+    assert rate < 0.12  # generous upper bound around the nominal 0.05
 
 
 def test_shift_gives_small_pvalue():

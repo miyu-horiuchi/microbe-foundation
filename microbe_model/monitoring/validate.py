@@ -37,8 +37,21 @@ def error_correlation(ood_scores, errors) -> float:
     return float(rho)
 
 
-def load_family_split(features_path: str, splits_path: str):
-    """Return (X_train, X_heldout, X_heldin) embeddings for the family split."""
+def load_family_split(features_path: str, splits_path: str, *, indist_frac: float = 0.2, seed: int = 0):
+    """Return (X_ref, X_novel, X_indist) embeddings for an OOD-detection eval.
+
+    Correct OOD framing on the family split: the reference and the in-distribution
+    negatives must come from the SAME families, differing only by strain; the
+    positives come from families never seen in training.
+
+    - X_ref     : a (1 - indist_frac) slice of train-family genomes -> fits the manifold.
+    - X_indist  : the held-out indist_frac of train-family genomes (seen families,
+                  unseen strains) -> in-distribution NEGATIVES.
+    - X_novel   : test-family genomes (novel families) -> OOD POSITIVES.
+
+    Note: val/test families are themselves disjoint from train families, so val
+    genomes are NOT in-distribution and must not be used as negatives.
+    """
     import pandas as pd
 
     # No allow_pickle: bacdive_ids/accessions are fixed-width unicode arrays.
@@ -48,24 +61,34 @@ def load_family_split(features_path: str, splits_path: str):
     sp = pd.read_parquet(splits_path)[["bacdive_id", "family_split"]]
     id_to_split = dict(zip(sp["bacdive_id"].astype(str), sp["family_split"]))
     split_of = np.array([id_to_split.get(str(i), "unknown") for i in ids])
-    return (
-        feats[split_of == "train"],
-        feats[split_of == "test"],
-        feats[split_of == "val"],
-    )
+
+    train = feats[split_of == "train"]
+    novel = feats[split_of == "test"]
+
+    rng = np.random.default_rng(seed)
+    perm = rng.permutation(len(train))
+    n_indist = int(round(len(train) * indist_frac))
+    indist = train[perm[:n_indist]]
+    ref = train[perm[n_indist:]]
+    return ref, novel, indist
 
 
 def run_family_split_validation(features_path: str, splits_path: str, **manifold_kwargs):
-    """Compare Euclidean vs diffusion backends on the family split. Returns a dict."""
-    X_train, X_heldout, X_heldin = load_family_split(features_path, splits_path)
+    """Compare Euclidean vs diffusion backends on the family split. Returns a dict.
+
+    Positives = novel-family genomes (OOD); negatives = held-out train-family
+    genomes (in-distribution). AUROC measures how well the OOD score separates
+    genuinely novel families from unseen strains of known families.
+    """
+    X_ref, X_novel, X_indist = load_family_split(features_path, splits_path)
     results = {}
     for name, backend in (("euclidean", EuclideanBackend()), ("diffusion", DiffusionBackend())):
-        auroc, _, _ = evaluate_backend(X_train, X_heldout, X_heldin, backend, **manifold_kwargs)
+        auroc, _, _ = evaluate_backend(X_ref, X_novel, X_indist, backend, **manifold_kwargs)
         results[name] = {
             "auroc": auroc,
-            "n_train": int(len(X_train)),
-            "n_heldout": int(len(X_heldout)),
-            "n_heldin": int(len(X_heldin)),
+            "n_ref": int(len(X_ref)),
+            "n_novel": int(len(X_novel)),
+            "n_indist": int(len(X_indist)),
         }
     return results
 
@@ -78,7 +101,7 @@ def _main() -> None:
     results = run_family_split_validation(args.features, args.splits)
     for name, r in results.items():
         print(f"{name:10s} AUROC={r['auroc']:.4f}  "
-              f"(train={r['n_train']}, heldout={r['n_heldout']}, heldin={r['n_heldin']})")
+              f"(ref={r['n_ref']}, novel={r['n_novel']}, indist={r['n_indist']})")
 
 
 if __name__ == "__main__":

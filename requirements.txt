@@ -21,4 +21,5 @@ transformers>=4.40,<4.58  # 4.57.x is the verified-working set; a partial/downgr
 
 # Optional baselines
 scikit-learn>=1.4
+scipy>=1.11
 xgboost>=2.0

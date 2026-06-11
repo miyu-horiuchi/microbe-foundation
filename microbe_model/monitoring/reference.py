@@ -24,8 +24,14 @@ class ReferenceManifold:
     scale_: np.ndarray | None = field(default=None, repr=False)
     threshold_: float | None = None
 
-    def _standardize(self, X: np.ndarray) -> np.ndarray:
+    def standardize(self, X: np.ndarray) -> np.ndarray:
+        """Apply the reference mean/scale to X. Public so other modules (e.g. the
+        drift classifier's MMD test) can put samples in the same space as the
+        fitted backend without reaching into internals."""
         return (np.asarray(X, dtype=float) - self.mean_) / self.scale_
+
+    # Backwards-compatible internal alias.
+    _standardize = standardize
 
     def fit(self, X_ref: np.ndarray) -> "ReferenceManifold":
         X_ref = np.asarray(X_ref, dtype=float)

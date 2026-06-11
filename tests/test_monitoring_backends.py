@@ -43,3 +43,29 @@ def test_diffusion_scores_far_higher_than_near():
     near = rng.normal(size=(20, 5))
     far = rng.normal(size=(20, 5)) + 8.0
     assert backend.score(far).mean() > backend.score(near).mean()
+
+
+def test_diffusion_extreme_ood_is_finite_max_not_nan():
+    """A point so far that all RBF affinities underflow must score as max OOD (inf),
+    never NaN — NaN > threshold is False and would mask the worst OOD point."""
+    rng = np.random.default_rng(2)
+    ref = rng.normal(size=(150, 5))
+    backend = DiffusionBackend(n_components=6, k=10).fit(ref)
+    extreme = np.full((3, 5), 1e6)
+    s = backend.score(extreme)
+    assert not np.isnan(s).any()
+    assert np.isinf(s).all()
+    # And it must outrank a near point.
+    near = backend.score(rng.normal(size=(3, 5)))
+    assert (s > near).all()
+
+
+def test_diffusion_rejects_too_few_reference_points():
+    """Fewer than n_components+2 reference points cannot yield the requested
+    non-trivial eigenvectors — fail loudly instead of degenerate coords."""
+    import pytest
+
+    rng = np.random.default_rng(3)
+    ref = rng.normal(size=(5, 4))
+    with pytest.raises(ValueError, match="needs at least"):
+        DiffusionBackend(n_components=10, k=3).fit(ref)

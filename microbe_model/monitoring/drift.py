@@ -36,6 +36,14 @@ class DriftReport:
     recommendation: str
 
 
+def _subsample(X: np.ndarray, n_max: int, rng: np.random.Generator) -> np.ndarray:
+    """Return at most n_max rows of X, sampled without replacement."""
+    if len(X) <= n_max:
+        return X
+    idx = rng.choice(len(X), n_max, replace=False)
+    return X[idx]
+
+
 def assess_drift(
     manifold: ReferenceManifold,
     X_ref_sample: np.ndarray,
@@ -44,16 +52,26 @@ def assess_drift(
     alpha: float = 0.05,
     ood_rate_threshold: float = 0.2,
     n_perm: int = 200,
+    max_mmd_sample: int = 2000,
     seed: int = 0,
 ) -> DriftReport:
-    """Assess whether X_test has drifted from the reference distribution."""
+    """Assess whether X_test has drifted from the reference distribution.
+
+    The MMD permutation test builds a full (n_ref+n_test)^2 Gram matrix, so both
+    inputs are subsampled to at most ``max_mmd_sample`` rows before the test to keep
+    memory bounded at production scale. The per-genome OOD rate uses all of X_test.
+    """
     X_test = np.asarray(X_test, dtype=float)
+    X_ref_sample = np.asarray(X_ref_sample, dtype=float)
     scores = manifold.ood_score(X_test)
     ood_rate = float((scores > manifold.threshold_).mean())
 
+    rng = np.random.default_rng(seed)
+    mmd_ref = _subsample(X_ref_sample, max_mmd_sample, rng)
+    mmd_test = _subsample(X_test, max_mmd_sample, rng)
     mmd2, p_value = mmd_permutation_test(
-        manifold._standardize(X_ref_sample),
-        manifold._standardize(X_test),
+        manifold.standardize(mmd_ref),
+        manifold.standardize(mmd_test),
         n_perm=n_perm,
         seed=seed,
     )

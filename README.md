@@ -2,6 +2,8 @@
 
 **Reading the genome of an organism no one has ever grown, and predicting how to grow it.**
 
+**Live demo:** [Hugging Face Space — miyuiu/microbe-foundation](https://miyuiu-microbe-foundation.hf.space)
+
 Most microbial life is *dark matter*: an estimated **99% of microbial species have never been cultured** in a lab, so we know almost nothing about them — what they need to grow, what they do, or what they could make. Yet their genomes are pouring in by the millions (metagenome-assembled and single-cell genomes). microbe-foundation is a machine-learning effort to **turn those genomes into actionable biology**: predict an organism's complete species description *and* the cultivation conditions likely to bring it into culture, so labs can prioritize the few worth attempting instead of blindly trying thousands.
 
 > **One line:** a genome-conditioned, multi-task model that predicts a microbe's traits and its likely **cultivation medium**, used as a screening tool to triage which dark-matter organisms to try to culture — with a roadmap toward a closed active-learning loop that gets better with every wet-lab result.

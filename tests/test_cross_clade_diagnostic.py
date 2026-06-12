@@ -60,3 +60,19 @@ def test_diversity_curve_returns_row_per_k_seed():
         assert r["k_families"] in (3, 6)
         assert 0.0 <= r["test_f1"] <= 1.0
         assert r["n_train"] > 0
+
+
+def test_verdict_labels_match_signals():
+    # diversity rising + knn good -> coverage; flat + poor -> wall
+    assert mod.verdict(diversity_rising=True, knn_good=True) == "coverage-limited"
+    assert mod.verdict(diversity_rising=False, knn_good=False) == "representation-wall"
+    assert mod.verdict(diversity_rising=True, knn_good=False) == "mixed"
+
+
+def test_is_rising_detects_monotone_gain():
+    # mean test_f1 grows with k -> rising
+    rows = [{"k_families": 5, "test_f1": 0.4}, {"k_families": 5, "test_f1": 0.42},
+            {"k_families": 80, "test_f1": 0.6}, {"k_families": 80, "test_f1": 0.62}]
+    assert mod.is_rising(rows) is True
+    flat = [{"k_families": 5, "test_f1": 0.5}, {"k_families": 80, "test_f1": 0.5}]
+    assert mod.is_rising(flat) is False

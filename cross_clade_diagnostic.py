@@ -126,3 +126,139 @@ def family_diversity_curve(X_train, y_train, fam_train, X_test, y_test, ks, seed
                 "test_f1": _macro_f1(y_test, prob),
             })
     return rows
+
+
+def is_rising(diversity_rows, min_gain: float = 0.02) -> bool:
+    """True if mean test_f1 at the largest k exceeds the smallest k by > min_gain."""
+    if not diversity_rows:
+        return False
+    by_k: dict = {}
+    for r in diversity_rows:
+        by_k.setdefault(r["k_families"], []).append(r["test_f1"])
+    ks = sorted(by_k)
+    lo = float(np.mean(by_k[ks[0]]))
+    hi = float(np.mean(by_k[ks[-1]]))
+    return (hi - lo) > min_gain
+
+
+def verdict(diversity_rising: bool, knn_good: bool) -> str:
+    if diversity_rising and knn_good:
+        return "coverage-limited"
+    if not diversity_rising and not knn_good:
+        return "representation-wall"
+    return "mixed"
+
+
+def prepare_trait(feats, id_to_row, tr, trait):
+    """Return (X_train, y_train, fam_train, X_test, y_test) for the family split."""
+    y, mask = binary_trait_labels(tr[trait])
+    sub = tr[mask]
+    ys = y[mask]
+    is_tr = (sub["fsplit"] == "train").to_numpy()
+    is_te = (sub["fsplit"] == "test").to_numpy()
+    rows_tr = sub["row"].to_numpy()[is_tr]
+    rows_te = sub["row"].to_numpy()[is_te]
+    return (feats[rows_tr], ys[is_tr], sub["family"].to_numpy()[is_tr],
+            feats[rows_te], ys[is_te])
+
+
+def run(features_path, splits_path, traits_path, traits=TRAITS):
+    data = np.load(features_path)
+    feats = data["features"]
+    ids = np.array([str(i) for i in data["bacdive_ids"]])
+    id_to_row = {b: i for i, b in enumerate(ids)}
+    tr = pd.read_parquet(traits_path)
+    tr["bid"] = tr["bacdive_id"].astype(str)
+    tr = tr[tr["bid"].isin(id_to_row)].copy()
+    sp = pd.read_parquet(splits_path)[["bacdive_id", "family_split"]]
+    fam = dict(zip(sp["bacdive_id"].astype(str), sp["family_split"]))
+    tr["fsplit"] = tr["bid"].map(lambda b: fam.get(b, "unknown"))
+    tr["row"] = tr["bid"].map(id_to_row)
+
+    diversity, transfer = {}, {}
+    for trait in traits:
+        if trait not in tr.columns:
+            continue
+        Xtr, ytr, fam_tr, Xte, yte = prepare_trait(feats, id_to_row, tr, trait)
+        if len(np.unique(ytr)) < 2 or len(np.unique(yte)) < 2:
+            continue
+        n_fam = len(set(fam_tr))
+        ks = [k for k in DIVERSITY_KS if k < n_fam] + [n_fam]
+        diversity[trait] = family_diversity_curve(Xtr, ytr, fam_tr, Xte, yte, ks, DIVERSITY_SEEDS)
+        transfer[trait] = knn_transfer(Xtr, ytr, Xte, yte)
+    return diversity, transfer
+
+
+def to_markdown(diversity, transfer) -> str:
+    lines = ["# Table 15 — Cross-clade collapse diagnostic", "",
+             "Why family-level transfer collapses: training-clade *coverage* vs a frozen-"
+             "representation *wall*. Diagnostic A = test macro-F1 vs #training families; "
+             "B = cross-clade k-NN label transfer vs the probe and a chance baseline.", "",
+             "## B. Cross-clade k-NN transfer", "",
+             "| Trait | Test n | Pos rate | k-NN F1 | k-NN AUROC | Probe F1 | Probe AUROC | Chance F1 |",
+             "|---|---:|---:|---:|---:|---:|---:|---:|"]
+    for trait, t in transfer.items():
+        lines.append(f"| `{trait}` | {t['n_test']} | {t['pos_rate']:.3f} | {t['knn_f1']:.3f} | "
+                     f"{t['knn_auroc']:.3f} | {t['probe_f1']:.3f} | {t['probe_auroc']:.3f} | {t['chance_f1']:.3f} |")
+    lines += ["", "## A. Family-diversity curve (mean test macro-F1 over seeds)", "",
+              "| Trait | k=min | k=max | rising? | verdict |", "|---|---:|---:|:--:|:--:|"]
+    for trait, rows in diversity.items():
+        if not rows:
+            continue
+        by_k: dict = {}
+        for r in rows:
+            by_k.setdefault(r["k_families"], []).append(r["test_f1"])
+        ks = sorted(by_k)
+        rising = is_rising(rows)
+        knn_good = transfer[trait]["knn_f1"] > transfer[trait]["chance_f1"] + 0.05
+        lines.append(f"| `{trait}` | {np.mean(by_k[ks[0]]):.3f} | {np.mean(by_k[ks[-1]]):.3f} | "
+                     f"{'yes' if rising else 'no'} | {verdict(rising, knn_good)} |")
+    return "\n".join(lines) + "\n"
+
+
+def _save_figure(diversity, fig_path: Path) -> None:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    for trait, rows in diversity.items():
+        if not rows:
+            continue
+        by_k: dict = {}
+        for r in rows:
+            by_k.setdefault(r["k_families"], []).append(r["test_f1"])
+        ks = sorted(by_k)
+        means = [float(np.mean(by_k[k])) for k in ks]
+        ax.plot(ks, means, marker="o", label=trait)
+    ax.set_xlabel("number of training families")
+    ax.set_ylabel("family-test macro-F1")
+    ax.set_title("Cross-clade transfer vs training-clade diversity")
+    ax.legend()
+    fig.tight_layout()
+    fig_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(fig_path, dpi=150)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--features", default="data/esm2_features.npz")
+    ap.add_argument("--splits", default="data/splits.parquet")
+    ap.add_argument("--traits", default="data/traits.parquet")
+    ap.add_argument("--out-dir", default="paper/tables")
+    ap.add_argument("--fig-dir", default="paper/figures")
+    args = ap.parse_args()
+
+    diversity, transfer = run(args.features, args.splits, args.traits)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    md = to_markdown(diversity, transfer)
+    (out_dir / "15_cross_clade_diagnostic.md").write_text(md)
+    flat = [{"trait": t, **r} for t, rows in diversity.items() for r in rows]
+    pd.DataFrame(flat).to_csv(out_dir / "15_cross_clade_diagnostic.csv", index=False)
+    _save_figure(diversity, Path(args.fig_dir) / "cross_clade_diversity_curve.png")
+    print(md)
+
+
+if __name__ == "__main__":
+    main()

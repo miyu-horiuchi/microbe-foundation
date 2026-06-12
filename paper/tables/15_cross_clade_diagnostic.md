@@ -12,8 +12,10 @@ Why family-level transfer collapses: training-clade *coverage* vs a frozen-repre
 
 ## A. Family-diversity curve (mean test macro-F1 over seeds)
 
-| Trait | k=min | k=max | rising? | verdict |
-|---|---:|---:|:--:|:--:|
-| `sporulation` | 0.586 | 0.828 | yes | coverage-limited |
-| `motility` | 0.515 | 0.635 | yes | coverage-limited |
-| `catalase` | 0.546 | 0.686 | yes | coverage-limited |
+The *natural* curve confounds #families with #training-genomes (fewer families = fewer genomes); the *fixed-N* curve holds training size constant so only family count varies, isolating clade diversity from data volume.
+
+| Trait | nat k=min | nat k=max | nat rising? | fixed-N | fixedN k=min | fixedN k=max | fixedN rising? | verdict |
+|---|---:|---:|:--:|---:|---:|---:|:--:|:--:|
+| `sporulation` | 0.586 | 0.828 | yes | 15 | 0.616 | 0.707 | yes | coverage-limited (clade diversity) |
+| `motility` | 0.515 | 0.635 | yes | 33 | 0.533 | 0.556 | yes | coverage-limited (clade diversity) |
+| `catalase` | 0.546 | 0.686 | yes | 20 | 0.498 | 0.621 | yes | coverage-limited (clade diversity) |

@@ -62,11 +62,34 @@ def test_diversity_curve_returns_row_per_k_seed():
         assert r["n_train"] > 0
 
 
+def test_diversity_curve_fixed_n_caps_train_size():
+    rng = np.random.default_rng(1)
+    n_fam = 12
+    fams = np.repeat([f"fam{i}" for i in range(n_fam)], 10)
+    X_train = rng.normal(size=(len(fams), 4))
+    y_train = (X_train[:, 0] > 0).astype(float)
+    X_test = rng.normal(size=(40, 4))
+    y_test = (X_test[:, 0] > 0).astype(float)
+    rows = mod.family_diversity_curve(X_train, y_train, list(fams), X_test, y_test,
+                                      ks=[3, 6], seeds=[0, 1], fixed_n=15)
+    assert len(rows) > 0
+    for r in rows:
+        assert r["n_train"] <= 15
+
+
+def test_chance_f1_uses_train_majority():
+    from sklearn.metrics import f1_score
+    y_test = np.array([1.0, 1, 0, 0])
+    y_train = np.array([0.0, 0, 0, 1])  # train majority is 0 -> predict all 0
+    expected = float(f1_score(y_test, np.zeros(len(y_test)), average="macro", zero_division=0))
+    assert mod._chance_f1(y_test, y_train) == expected
+
+
 def test_verdict_labels_match_signals():
-    # diversity rising + knn good -> coverage; flat + poor -> wall
-    assert mod.verdict(diversity_rising=True, knn_good=True) == "coverage-limited"
-    assert mod.verdict(diversity_rising=False, knn_good=False) == "representation-wall"
-    assert mod.verdict(diversity_rising=True, knn_good=False) == "mixed"
+    assert mod.verdict(True, True, True) == "coverage-limited (clade diversity)"
+    assert mod.verdict(False, False, False) == "representation-wall"
+    assert mod.verdict(False, True, True) == "data-limited (volume, not diversity-specific)"
+    assert mod.verdict(False, True, False) == "mixed"
 
 
 def test_is_rising_detects_monotone_gain():

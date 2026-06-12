@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 import model as model_mod
@@ -66,6 +67,63 @@ def test_model_with_attention_pool_forward():
     x = torch.randn(4, 5, 8)
     mask = torch.ones(4, 5)
     out = model(x, mask)
+    assert out["motility"].shape == (4, 1)
+    assert out["gram_stain"].shape == (4, 3)
+
+
+def test_mean_protein_pool_ignores_padding():
+    pool = model_mod.MeanProteinPool()
+    real = torch.tensor([[[1.0, 2.0], [3.0, 4.0]]])
+    padded = torch.tensor([[[1.0, 2.0], [3.0, 4.0], [99.0, 99.0]]])
+    assert torch.allclose(
+        pool(padded, torch.tensor([[1.0, 1.0, 0.0]])),
+        pool(real, torch.tensor([[1.0, 1.0]])),
+    )
+
+
+def test_max_protein_pool_ignores_padding():
+    pool = model_mod.MaxProteinPool()
+    x = torch.tensor([[[1.0, 7.0], [3.0, 4.0], [99.0, 99.0]]])
+    out = pool(x, torch.tensor([[1.0, 1.0, 0.0]]))
+    assert out.tolist() == [[3.0, 7.0]]
+
+
+def test_topk_pool_output_shape_and_gradient():
+    torch.manual_seed(0)
+    pool = model_mod.TopKProteinPool(dim=8, k=2)
+    x = torch.randn(3, 5, 8)
+    mask = torch.tensor([
+        [1.0, 1.0, 1.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0, 1.0, 1.0],
+        [1.0, 0.0, 0.0, 0.0, 0.0],
+    ])
+    out = pool(x, mask)
+    assert out.shape == (3, 8)
+    out.sum().backward()
+    assert pool.score.weight.grad is not None
+
+
+def test_gated_attention_weights_sum_to_one():
+    torch.manual_seed(0)
+    pool = model_mod.GatedAttentionPool(dim=8)
+    pool.store_attn = True
+    x = torch.randn(2, 4, 8)
+    mask = torch.tensor([[1.0, 1.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0]])
+    out = pool(x, mask)
+    assert out.shape == (2, 8)
+    assert torch.allclose(pool.last_attn.sum(dim=1), torch.ones(2), atol=1e-5)
+    assert pool.last_attn[0, 2:].sum().item() == pytest.approx(0.0)
+
+
+def test_model_with_gated_attention_forward():
+    specs = {
+        "motility": {"head_type": "binary", "size": 1},
+        "gram_stain": {"head_type": "multiclass", "size": 3},
+    }
+    model = model_mod.MicrobeFoundationModel(
+        input_dim=8, head_specs=specs, hidden=16, dropout=0.0, pooling="gated_attention"
+    )
+    out = model(torch.randn(4, 5, 8), torch.ones(4, 5))
     assert out["motility"].shape == (4, 1)
     assert out["gram_stain"].shape == (4, 3)
 

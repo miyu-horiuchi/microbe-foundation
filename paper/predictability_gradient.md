@@ -91,6 +91,12 @@ At the species and genus levels the machinery gain exceeds the compositional gai
 
 The most consequential result is the family row. As the test distribution moves from same-species to same-family to *novel-family* organisms, the machinery advantage decays monotonically ($+0.083 \to +0.067 \to +0.010$) until the gradient is effectively gone (gap $+0.001$). Mean- and attention-pooling become indistinguishable precisely in the regime that matters for uncultured organisms. This localizes the bottleneck: the limiting factor is not how we pool proteins but whether *any* protein-set representation transfers across evolutionary distance.
 
+## Detecting the covariate-shift regime
+
+If the pooling advantage vanishes precisely for novel-family organisms, a practitioner needs to *know* when a query genome falls in that regime. This is feasible without labels: a monitor over the genome embeddings flags novel-family organisms. Using mean $k$-nearest-neighbour distance from a candidate's 640-d ESM-2 vector to the training-family genomes, held-out *novel families* separate from held-out strains of *seen families* at AUROC 0.76. A curvature-aware diffusion-map variant (a heat-kernel embedding of the reference manifold) does **not** improve on plain Euclidean distance (AUROC 0.69--0.73 across 10--100 diffusion components); the simplest detector is the best one.
+
+Detecting the regime is not the same as triaging individual genomes. We tested whether the same novelty score predicts *per-genome* error, training family-split classifiers per trait and correlating embedding distance with $|y-\hat p|$ on novel families. The relationship is trait-specific and weak: positive only for the most localized, highly-learnable machinery trait (sporulation, Spearman $+0.09$ with the production model; $+0.14$ with a linear probe), null for compositional traits, and *negative* for imbalanced pathogenicity, where genomes far from known pathogens are confidently---and correctly---predicted non-pathogenic. The embedding monitor is therefore a **distribution-shift detector, not a per-genome confidence estimate**: it signals that the model is operating off-distribution, not which individual predictions to distrust.
+
 # Does the Attention Find the Right Genes?
 
 A performance gain does not establish that attention is mechanistically meaningful; attention weights need not be faithful [@jain2019attention]. We validate the largest-gain trait, **pathogenicity**, against external ground truth (VFDB [@liu2022vfdb], 4,663 experimentally-verified virulence factors) with two matched controls and a causal ablation. We train single-task attention-pool models per pathogenicity head (so the shared pool specializes); both discriminate well on held-out test genomes (AUROC 0.88 animal, 0.85 human).
@@ -130,7 +136,7 @@ Three predictions make this a falsifiable next experiment, not a hand-wave: (i) 
 
 **Limitations, stated plainly.**
 
-- *Covariate shift is unsolved and dominates.* The benefit evaporates at family-level holdout (§4.2). For the uncultured-organism application that motivates genomic trait models, this is the result that matters most, and it is negative for the pooling lever.
+- *Covariate shift is unsolved and dominates.* The benefit evaporates at family-level holdout (§4.2). For the uncultured-organism application that motivates genomic trait models, this is the result that matters most, and it is negative for the pooling lever. It is at least *detectable*: a label-free embedding monitor flags novel-family genomes at AUROC 0.76, though that signal does not transfer to per-genome confidence.
 - *Weighted sum, not combinations.* The validated model up-weights individual proteins; it cannot represent interactions. §6 specifies the successor but does not yet evaluate it.
 - *Enrichment, not coverage.* 68% of top-attended proteins are not VFDB hits; VFDB catalogs only *known* factors, so this is expected and our claim is strictly about enrichment.
 - *Single encoder scale.* All results use one ESM-2 size (150M, 640-d); whether a larger encoder sharpens the gradient is untested.

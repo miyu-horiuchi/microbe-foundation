@@ -133,3 +133,15 @@ def test_masked_loss_gradient_flows(tiny_df, tiny_vocab, tiny_schema):
     # First encoder layer must have a non-zero gradient
     assert model.encoder[0].weight.grad is not None
     assert model.encoder[0].weight.grad.abs().sum() > 0
+
+
+def test_predictions_to_frame_filters_unlabeled_and_preserves_order():
+    """Per-genome prediction frame keeps only labeled (masked) rows, in id order."""
+    ids = np.array([10, 11, 12, 13])
+    probs = np.array([0.9, 0.1, 0.5, 0.7])
+    trues = np.array([1.0, 0.0, 0.0, 1.0])
+    mask = np.array([1.0, 1.0, 0.0, 1.0])  # row 12 is unlabeled -> dropped
+    frame = model_mod.predictions_to_frame(ids, probs, trues, mask)
+    assert list(frame["bacdive_id"]) == [10, 11, 13]
+    assert list(frame["true_label"]) == [1.0, 0.0, 1.0]
+    assert list(frame["pred"]) == [0.9, 0.1, 0.7]

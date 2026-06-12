@@ -201,6 +201,41 @@ def prepare_labels(
 # =============================================================================
 
 
+class MeanProteinPool(nn.Module):
+    """Masked mean pooling over a variable-length set of protein vectors."""
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        denom = mask.sum(dim=1, keepdim=True).clamp(min=1.0)
+        return (x * mask.unsqueeze(-1)).sum(dim=1) / denom
+
+
+class MaxProteinPool(nn.Module):
+    """Masked max pooling over proteins."""
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        masked = x.masked_fill(mask.unsqueeze(-1) == 0, float("-inf"))
+        pooled = masked.max(dim=1).values
+        return torch.nan_to_num(pooled, neginf=0.0)
+
+
+class TopKProteinPool(nn.Module):
+    """Learned top-k attention pooling over the highest-scoring real proteins."""
+
+    def __init__(self, dim: int, k: int = 8):
+        super().__init__()
+        self.k = k
+        self.score = nn.Linear(dim, 1)
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        scores = self.score(x).squeeze(-1).masked_fill(mask == 0, float("-inf"))
+        k = min(self.k, scores.shape[1])
+        vals, idx = torch.topk(scores, k=k, dim=1)
+        gathered = x.gather(1, idx.unsqueeze(-1).expand(-1, -1, x.shape[-1]))
+        attn = torch.softmax(vals, dim=1)
+        attn = torch.nan_to_num(attn)
+        return (gathered * attn.unsqueeze(-1)).sum(dim=1)
+
+
 class AttentionPool(nn.Module):
     """Learned attention pooling over a variable-length set of protein vectors.
 
@@ -239,6 +274,43 @@ class AttentionPool(nn.Module):
         return (x * attn.unsqueeze(-1)).sum(dim=1)    # [B, D]
 
 
+class GatedAttentionPool(nn.Module):
+    """Gated multiple-instance attention pooling from Ilse et al."""
+
+    def __init__(self, dim: int, hidden: int | None = None):
+        super().__init__()
+        hidden = hidden or dim
+        self.tanh_branch = nn.Linear(dim, hidden)
+        self.gate_branch = nn.Linear(dim, hidden)
+        self.score = nn.Linear(hidden, 1)
+        self.store_attn = False
+        self.last_attn: torch.Tensor | None = None
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        gated = torch.tanh(self.tanh_branch(x)) * torch.sigmoid(self.gate_branch(x))
+        scores = self.score(gated).squeeze(-1)
+        scores = scores.masked_fill(mask == 0, float("-inf"))
+        attn = torch.softmax(scores, dim=1)
+        attn = torch.nan_to_num(attn)
+        if self.store_attn:
+            self.last_attn = attn.detach()
+        return (x * attn.unsqueeze(-1)).sum(dim=1)
+
+
+def make_pooler(name: str, input_dim: int, topk: int = 8) -> nn.Module:
+    if name == "mean":
+        return MeanProteinPool()
+    if name == "max":
+        return MaxProteinPool()
+    if name == "topk":
+        return TopKProteinPool(input_dim, k=topk)
+    if name == "attention":
+        return AttentionPool(input_dim)
+    if name == "gated_attention":
+        return GatedAttentionPool(input_dim)
+    raise ValueError(f"unknown pooling mode: {name}")
+
+
 class MicrobeFoundationModel(nn.Module):
     """Shared MLP encoder + per-trait linear heads.
 
@@ -249,9 +321,13 @@ class MicrobeFoundationModel(nn.Module):
     """
 
     def __init__(self, input_dim: int, head_specs: dict[str, dict], hidden: int = 512,
-                 dropout: float = 0.2, attention_pool: bool = False):
+                 dropout: float = 0.2, attention_pool: bool = False,
+                 pooling: str | None = None, topk: int = 8):
         super().__init__()
-        self.pool = AttentionPool(input_dim) if attention_pool else None
+        if attention_pool and pooling is None:
+            pooling = "attention"
+        self.pooling = pooling
+        self.pool = make_pooler(pooling, input_dim, topk=topk) if pooling else None
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden),
             nn.ReLU(),
@@ -633,6 +709,40 @@ def _primary_metric(head_type: str) -> str:
     }[head_type]
 
 
+def predictions_to_frame(bacdive_ids, probs, trues, mask) -> "pd.DataFrame":
+    """Per-genome predictions for labeled rows only, preserving order.
+
+    bacdive_ids/probs/trues/mask are aligned 1:1 (loader order). Rows where mask
+    is falsey (unlabeled) are dropped.
+    """
+    import pandas as pd
+
+    keep = np.asarray(mask).astype(bool)
+    return pd.DataFrame(
+        {
+            "bacdive_id": np.asarray(bacdive_ids)[keep],
+            "true_label": np.asarray(trues)[keep],
+            "pred": np.asarray(probs)[keep],
+        }
+    )
+
+
+def collect_binary_predictions(model, loader, specs, device, head: str):
+    """Return (probs, trues, mask) for one binary head in loader order.
+
+    Requires an unshuffled loader so the row order matches the caller's id list.
+    """
+    model.train(False)
+    probs, trues, masks = [], [], []
+    with torch.no_grad():
+        for feats, labels, batch_masks in loader:
+            pred = _model_forward(model, feats, device)[head]
+            probs.append(torch.sigmoid(pred.squeeze(-1)).detach().cpu().numpy())
+            trues.append(labels[head].detach().cpu().numpy())
+            masks.append(batch_masks[head].detach().cpu().numpy())
+    return np.concatenate(probs), np.concatenate(trues), np.concatenate(masks)
+
+
 def _avg_primary(metrics: dict[str, dict[str, float]], specs) -> float:
     vals = [m[_primary_metric(specs[name]["head_type"])] for name, m in metrics.items()]
     return sum(vals) / max(len(vals), 1)
@@ -700,6 +810,11 @@ def main() -> None:
     parser.add_argument("--per-protein", type=Path, default=None,
                         help="Directory of un-pooled per-protein embeddings (<bid>.npy + manifest.parquet) "
                              "from compute_esm2_perprotein_mp.py. Enables attention pooling. Overrides --features.")
+    parser.add_argument("--pooling", choices=["mean", "max", "topk", "attention", "gated_attention"],
+                        default="attention",
+                        help="Pooling operator for --per-protein runs. Pre-pooled --features runs ignore this.")
+    parser.add_argument("--topk", type=int, default=8,
+                        help="Number of proteins to average in --pooling topk mode.")
     parser.add_argument("--max-proteins", type=int, default=0,
                         help="With --per-protein, cap proteins per genome per batch (0 = no cap). Bounds GPU memory.")
     parser.add_argument("--split-level", choices=["species", "genus", "family"], default="family")
@@ -714,6 +829,9 @@ def main() -> None:
     parser.add_argument("--feat-dim", type=int, default=128, help="Smoke-test feature dim (ignored if --features given)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--save-metrics", type=Path, default=None, help="Write final test metrics to this JSON path")
+    parser.add_argument("--save-predictions", type=Path, default=None,
+                        help="Write per-genome test predictions (bacdive_id,true_label,pred) to this parquet. "
+                             "Requires exactly one binary head (use --single-task <trait>).")
     parser.add_argument("--save-model", type=Path, default=None,
                         help="Save the trained weights + rebuild config to this .pt path (for attention extraction)")
     parser.add_argument("--run-name", type=str, default="", help="Tag for the saved metrics (e.g., 'esm2-35M-family')")
@@ -812,10 +930,12 @@ def main() -> None:
         )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    pooling = args.pooling if per_protein else None
     model = MicrobeFoundationModel(input_dim, specs, hidden=args.hidden, dropout=args.dropout,
-                                   attention_pool=per_protein).to(device)
+                                   pooling=pooling, topk=args.topk).to(device)
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"\nmodel: {n_params:,} parameters  (device={device})")
+    pool_s = pooling or "pre-pooled"
+    print(f"\nmodel: {n_params:,} parameters  (device={device}, pooling={pool_s})")
 
     class_weights = None
     if args.class_weights:
@@ -850,6 +970,7 @@ def main() -> None:
             "epochs": args.epochs,
             "n_params": n_params,
             "feature_dim": input_dim,
+            "pooling": pooling or "pre-pooled",
             "n_train": int((df.split == "train").sum()),
             "n_val": int((df.split == "val").sum()),
             "n_test": int((df.split == "test").sum()),
@@ -868,6 +989,21 @@ def main() -> None:
         args.save_metrics.write_text(json.dumps(out, indent=2))
         print(f"\nwrote test metrics to {args.save_metrics}")
 
+    if args.save_predictions and test_loader is not None:
+        binary_heads = [n for n in specs if specs[n]["head_type"] == "binary"]
+        if len(binary_heads) != 1:
+            print(f"--save-predictions needs exactly one binary head, found {len(binary_heads)}; "
+                  "use --single-task <trait>. Skipping.")
+        else:
+            head = binary_heads[0]
+            probs, trues, mask = collect_binary_predictions(model, test_loader, specs, device, head)
+            # test_loader is unshuffled, so order matches splits["test"].
+            test_ids = df.loc[splits["test"], "bacdive_id"].to_numpy()
+            frame = predictions_to_frame(test_ids, probs, trues, mask)
+            args.save_predictions.parent.mkdir(parents=True, exist_ok=True)
+            frame.to_parquet(args.save_predictions)
+            print(f"wrote {len(frame)} per-genome predictions ({head}) to {args.save_predictions}")
+
     if args.save_model:
         # Everything needed to rebuild the model for attention extraction:
         # weights + the constructor args (head sizes, input_dim, pool flag).
@@ -877,6 +1013,8 @@ def main() -> None:
             "input_dim": input_dim,
             "hidden": args.hidden,
             "attention_pool": per_protein,
+            "pooling": pooling or "pre-pooled",
+            "topk": args.topk,
             "head_sizes": {name: int(head.out_features) for name, head in model.heads.items()},
             "split_level": args.split_level,
             "seed": args.seed,

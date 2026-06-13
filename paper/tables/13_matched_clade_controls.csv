@@ -1,0 +1,13 @@
+trait,split,matched_level,n_test_labeled,n_matched_test,matched_coverage,n_mixed_train_clades,matched_positive_rate,matched_taxonomy_acc,matched_taxonomy_macro_f1
+pathogenicity_animal,species,genus,3144,699,0.22232824427480916,69,0.1430615164520744,0.8626609442060086,0.7502084574151281
+pathogenicity_animal,species,family,3144,1543,0.4907760814249364,68,0.09332469215813351,0.8898250162022034,0.7161147186147185
+pathogenicity_animal,genus,genus,2567,0,0.0,60,,,
+pathogenicity_animal,genus,family,2567,1000,0.38955979742890534,56,0.039,0.886,0.621393272756257
+pathogenicity_animal,family,genus,2172,1,0.00046040515653775324,69,0.0,0.0,
+pathogenicity_animal,family,family,2172,0,0.0,47,,,
+pathogenicity_human,species,genus,3084,850,0.27561608300907914,101,0.10823529411764705,0.8035294117647059,0.6419554102694099
+pathogenicity_human,species,family,3084,1823,0.5911154345006485,78,0.06966538672517827,0.8864509051014811,0.6252044753661189
+pathogenicity_human,genus,genus,2511,0,0.0,75,,,
+pathogenicity_human,genus,family,2511,1020,0.4062126642771804,58,0.06568627450980392,0.8725490196078431,0.4948109541443789
+pathogenicity_human,family,genus,2158,1,0.0004633920296570899,91,0.0,1.0,
+pathogenicity_human,family,family,2158,0,0.0,47,,,

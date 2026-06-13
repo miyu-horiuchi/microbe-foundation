@@ -27,6 +27,7 @@
 #   PERPROTEIN=... SEEDS="0 1 2 3 4" EPOCHS=40 bash scripts/tier1_runs.sh
 #   POOLINGS="attention set_transformer" bash scripts/tier1_runs.sh   # subset
 #   ANALYSIS_ONLY=1 bash scripts/tier1_runs.sh                        # just Section E (CPU)
+#   MICROBE_PY=/path/to/python bash scripts/tier1_runs.sh             # force interpreter
 #   # Larger-encoder lever: extract 650M embeddings, then train + compare on them:
 #   ESM_MODEL=facebook/esm2_t33_650M_UR50D ESM_TAG=650M bash scripts/tier1_runs.sh
 #
@@ -37,6 +38,55 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# ---- interpreter guard -----------------------------------------------------
+# Anaconda's numpy build hangs forever on `import numpy` inside restricted
+# sandboxes (a blocked sysctlbyname syscall spins instead of returning; see
+# docs/dev-environment-notes.md). Pick an interpreter that can actually import
+# numpy and route every bare `python3` call in this script through it.
+#
+#   - On a GPU box (e.g. Lambda) the torch-enabled interpreter is usually the
+#     PATH `python3`; set MICROBE_PY=/path/to/python if it isn't.
+#   - MICROBE_PY, when set, is trusted as-is (no probing).
+_py_imports_numpy() {
+    # Returns 0 if "$1" imports numpy within ~8s, else 1.
+    # A hung Anaconda import can sit in an uninterruptible syscall that even
+    # SIGKILL can't reap, so on timeout we kill + disown and return WITHOUT
+    # wait()ing (its stdio is /dev/null, so a stray orphan blocks nothing).
+    local py="$1" pid i=0
+    "$py" -c 'import numpy' >/dev/null 2>&1 &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 1; i=$((i + 1))
+        if [ "$i" -ge 8 ]; then
+            kill -9 "$pid" 2>/dev/null || true
+            disown "$pid" 2>/dev/null || true
+            return 1
+        fi
+    done
+    wait "$pid" 2>/dev/null
+}
+if [ -n "${MICROBE_PY:-}" ]; then
+    PY="$MICROBE_PY"
+    command -v "$PY" >/dev/null 2>&1 || { echo "ERROR: MICROBE_PY='$PY' not executable." >&2; exit 1; }
+    PY="$(command -v "$PY")"
+else
+    PY=""
+    for _cand in python3 /usr/local/bin/python3 /usr/bin/python3; do
+        _abs="$(command -v "$_cand" 2>/dev/null || true)"
+        [ -n "$_abs" ] && [ -x "$_abs" ] || continue
+        if _py_imports_numpy "$_abs"; then PY="$_abs"; break; fi
+        echo "[interpreter] $_abs cannot import numpy (hung/failed) -- skipping" >&2
+    done
+    [ -z "$PY" ] && {
+        echo "ERROR: no python3 on PATH can import numpy without hanging." >&2
+        echo "Set MICROBE_PY=/path/to/python3 (must import numpy; see docs/dev-environment-notes.md)." >&2
+        exit 1
+    }
+fi
+echo "[interpreter] using $PY"
+python3() { "$PY" "$@"; }   # route all bare python3 calls below through $PY
+# ----------------------------------------------------------------------------
 
 # ---- config (override via env) ---------------------------------------------
 PERPROTEIN="${PERPROTEIN:-data/esm2_perprotein}"   # per-protein .npy dir + manifest

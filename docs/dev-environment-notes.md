@@ -30,10 +30,22 @@ this sandbox. All analysis scripts and the `ANALYSIS_ONLY=1` path in
 `scripts/tier1_runs.sh` run cleanly under it.
 
 ### Recommendation
-Never let scripts fall back to the Anaconda interpreter. Either:
-- invoke `/usr/local/bin/python3` explicitly, or
-- add an interpreter guard at the top of `scripts/tier1_runs.sh` and python
-  helpers that selects system python and rejects `/opt/anaconda3`.
+Never let scripts fall back to the Anaconda interpreter.
+
+`scripts/tier1_runs.sh` now has an **interpreter guard** that does this
+automatically: it routes every `python3` call through an interpreter that can
+actually import numpy. It probes candidates (`python3` on PATH, then
+`/usr/local/bin/python3`, then `/usr/bin/python3`) with an ~8s watchdog and
+skips any that hang on the numpy import.
+
+- On the **GPU box (Lambda)** the torch-enabled interpreter is usually the PATH
+  `python3` and is selected automatically. If it isn't, set `MICROBE_PY`:
+  ```bash
+  MICROBE_PY=/path/to/python ANALYSIS_ONLY=1 bash scripts/tier1_runs.sh
+  ```
+  `MICROBE_PY`, when set, is trusted as-is (no probing).
+- A hung Anaconda import can sit in an uninterruptible syscall that even SIGKILL
+  cannot reap; the guard kills + disowns and moves on rather than blocking.
 
 ---
 

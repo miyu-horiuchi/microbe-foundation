@@ -64,6 +64,11 @@ train_one() {
         echo "[skip] $tag (metrics exist)"
         return 0
     fi
+    # Cross-clade retrieval needs the trained model's val+test probabilities, so
+    # dump them on the family split (the cross-clade regime).
+    local pred_args=()
+    [ "$split" = "family" ] && pred_args=(--save-all-predictions "${OUT_DIR}/${tag}_preds.parquet")
+
     echo "=== train $tag ==="
     python3 model.py \
         --per-protein "$PERPROTEIN" \
@@ -82,6 +87,7 @@ train_one() {
         --save-metrics "$metrics" \
         --save-model "${OUT_DIR}/${tag}.pt" \
         --run-name "$tag" \
+        "${pred_args[@]}" \
         "${extra[@]}"
 }
 
@@ -109,14 +115,22 @@ python3 cross_clade_diagnostic.py --out-dir paper/tables || echo "[warn] diagnos
 python3 retrieval_head.py        --out-dir paper/tables || echo "[warn] retrieval_head failed"
 python3 adaptive_retrieval.py    --out-dir paper/tables || echo "[warn] adaptive_retrieval failed"
 
+# ---- D. Real-system cross-clade retrieval on the trained model (Table 19) ---
+# Blend each family checkpoint's own probabilities with cross-clade k-NN.
+echo; echo "######## D. CHECKPOINT RETRIEVAL (real system) ########"
+for preds in "${OUT_DIR}"/*_family_s*_preds.parquet; do
+    [ -e "$preds" ] || continue
+    base="$(basename "$preds" _preds.parquet)"
+    echo "=== checkpoint retrieval: $base ==="
+    python3 checkpoint_retrieval.py --preds "$preds" \
+        --features data/esm2_features.npz \
+        --out-dir "${OUT_DIR}/retrieval_${base}" || echo "[warn] retrieval failed for $base"
+done
+
 echo
 echo "============================================================"
 echo "DONE. Per-run metrics + checkpoints in: $OUT_DIR"
 echo "Next:"
-echo "  1. Aggregate seeds into mean +/- CI tables for the paper:"
-echo "       python3 paper/aggregate_seeds.py --runs-dir $OUT_DIR --out paper/tables"
-echo "  2. Cross-clade results on the trained model (open item): blend each"
-echo "     checkpoint's per-genome predictions (model.py --save-predictions"
-echo "     --single-task <trait>) with k-NN, mirroring retrieval_head.py but"
-echo "     consuming model probs instead of a fresh LR probe."
+echo "  Aggregate seeds into mean +/- CI tables for the paper:"
+echo "     python3 paper/aggregate_seeds.py --runs-dir $OUT_DIR --out paper/tables"
 echo "============================================================"

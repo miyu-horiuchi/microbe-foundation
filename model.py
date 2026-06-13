@@ -965,6 +965,11 @@ def main() -> None:
     parser.add_argument("--save-predictions", type=Path, default=None,
                         help="Write per-genome test predictions (bacdive_id,true_label,pred) to this parquet. "
                              "Requires exactly one binary head (use --single-task <trait>).")
+    parser.add_argument("--save-all-predictions", type=Path, default=None,
+                        help="Write per-genome probabilities for ALL binary heads on BOTH the val "
+                             "and test splits, long format (bacdive_id, split, trait, true_label, "
+                             "pred), to this parquet. Feeds checkpoint_retrieval.py (the real-system "
+                             "cross-clade blend). Unlike --save-predictions, no --single-task needed.")
     parser.add_argument("--save-model", type=Path, default=None,
                         help="Save the trained weights + rebuild config to this .pt path (for attention extraction)")
     parser.add_argument("--run-name", type=str, default="", help="Tag for the saved metrics (e.g., 'esm2-35M-family')")
@@ -1157,6 +1162,32 @@ def main() -> None:
             args.save_predictions.parent.mkdir(parents=True, exist_ok=True)
             frame.to_parquet(args.save_predictions)
             print(f"wrote {len(frame)} per-genome predictions ({head}) to {args.save_predictions}")
+
+    if args.save_all_predictions:
+        binary_heads = [n for n in specs if specs[n]["head_type"] == "binary"]
+        if not binary_heads:
+            print("--save-all-predictions: no binary heads to dump. Skipping.")
+        else:
+            rows = []
+            for split_name in ("val", "test"):
+                ldr = loaders.get(split_name)
+                if ldr is None:
+                    continue
+                # unshuffled loader -> order matches splits[split_name]
+                split_ids = df.loc[splits[split_name], "bacdive_id"].to_numpy()
+                for head in binary_heads:
+                    probs, trues, mask = collect_binary_predictions(model, ldr, specs, device, head)
+                    keep = np.asarray(mask).astype(bool)
+                    for bid, p, t in zip(split_ids[keep], probs[keep], trues[keep]):
+                        rows.append({
+                            "bacdive_id": int(bid), "split": split_name, "trait": head,
+                            "true_label": int(t), "pred": float(p),
+                        })
+            args.save_all_predictions.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(rows).to_parquet(args.save_all_predictions)
+            n_val = sum(1 for r in rows if r["split"] == "val")
+            print(f"wrote {len(rows)} predictions ({len(binary_heads)} binary heads, "
+                  f"{n_val} val / {len(rows) - n_val} test) to {args.save_all_predictions}")
 
     if args.save_model:
         # Everything needed to rebuild the model for attention extraction:

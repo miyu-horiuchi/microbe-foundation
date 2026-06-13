@@ -65,3 +65,50 @@ Committed:
 Pending / GPU-dependent:
 - Larger-ESM (650M / 3B) embedding extraction + full training matrix
 - Multi-seed runs for mean +/- 95% CI tables
+
+---
+
+## Where the per-protein embeddings live (IMPORTANT)
+
+The full ~100GB per-protein ESM-2 embeddings are **NOT on this laptop** (only the
+manifest + an 86MB smoke subset). They were extracted on **Modal** by
+`modal_esm2_perprotein.py` and persisted to a Modal Volume:
+
+- **Volume name:** `microbe-esm2-perprotein`
+- **Layout:**
+  - `proteins/<bid>.txt.gz` -- cached protein AA sequences (Phase A, NCBI fetch)
+  - `<bid>.npy`             -- float16 [n_proteins, 640] 150M embeddings (Phase B)
+  - `manifest.parquet`
+- Modal CLI is installed + authed locally (`~/.modal.toml`).
+
+Verify it still exists:
+```bash
+modal volume ls microbe-esm2-perprotein            # expect proteins/, manifest.parquet, many *.npy
+modal volume ls microbe-esm2-perprotein | wc -l    # -> approaches ~19,600
+```
+Pull 150M embeddings locally (only needed for laptop/non-Modal training):
+```bash
+modal volume get microbe-esm2-perprotein "*.npy" ./data/esm2_perprotein
+modal volume get microbe-esm2-perprotein manifest.parquet ./data/esm2_perprotein
+```
+
+### Recommended path: train ON Modal (no 100GB download, no Lambda)
+Because the embeddings already live on the Modal Volume and proteins are cached,
+the cleanest plan is Modal-native:
+1. Train the tier-1 matrix as Modal GPU functions reading `/out/<bid>.npy` from
+   the Volume directly (no transfer). (Needs a small `modal_train_tier1.py`.)
+2. **650M stronger-encoder lever is cheap** -- re-run Phase B with
+   `--model facebook/esm2_t33_650M_UR50D` (proteins cached -> no NCBI re-fetch).
+
+### KNOWN FIX needed before 650M re-embed
+`modal_esm2_perprotein.py` Phase B writes `<bid>.npy` flat to the Volume root and
+**skips any genome whose `<bid>.npy` already exists**. Re-embedding at 650M on the
+same Volume would therefore skip everything (150M files present) and produce no
+650M output. Fix: model-tag the npy output dir (e.g. `/out/emb_650M/<bid>.npy`)
+and the manifest, keeping `proteins/` shared. Backward-compatible if the legacy
+tag defaults to the flat root layout.
+
+## scripts/lambda_launch.sh
+Lambda provisioner kept as a fallback (e.g. if Modal capacity is short). Needs a
+networked terminal + `LAMBDA_API_KEY`. Not the primary path given the data is on
+Modal.

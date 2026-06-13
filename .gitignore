@@ -61,3 +61,7 @@ paper/tables/07_leaderboard.md
 .env.local
 *.key
 pfam_db/
+
+# Sibling scratch repos and generated diagram outputs (not part of this repo)
+/new-repos/
+/outputs/

@@ -1,0 +1,7 @@
+n_labeled,structured,n_classes,top1_share,singleton_frac,norm_entropy,trait,diagnosis
+53065,False,246.0,0.19604258927730142,0.14227642276422764,0.6175948979193671,country,"many classes, no genomic basis (e.g. geography)"
+57783,False,24004.0,0.05475658930827406,0.7947842026328945,0.831091170050432,isolation_source,free-text explosion (sparse classes)
+15181,False,7.0,0.7979052763322574,0.0,0.36300394368770167,cell_shape,"few classes, weak genomic signal"
+23253,False,6.0,0.6674837655356298,0.0,0.5117139104291173,oxygen_tolerance,"few classes, weak genomic signal"
+23631,True,,,,,metabolite_production,structured/multilabel (collapsed to one label)
+28637,True,,,,,cultivation_medium,structured/multilabel (collapsed to one label)

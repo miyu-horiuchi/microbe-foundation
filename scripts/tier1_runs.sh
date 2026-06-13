@@ -27,6 +27,8 @@
 #   PERPROTEIN=... SEEDS="0 1 2 3 4" EPOCHS=40 bash scripts/tier1_runs.sh
 #   POOLINGS="attention set_transformer" bash scripts/tier1_runs.sh   # subset
 #   ANALYSIS_ONLY=1 bash scripts/tier1_runs.sh                        # just Section E (CPU)
+#   COST=1 bash scripts/tier1_runs.sh                                 # dry-run GPU $ estimate
+#   COST=1 ESM_MODEL=facebook/esm2_t33_650M_UR50D bash scripts/tier1_runs.sh  # incl. extraction
 #   MICROBE_PY=/path/to/python bash scripts/tier1_runs.sh             # force interpreter
 #   # Larger-encoder lever: extract 650M embeddings, then train + compare on them:
 #   ESM_MODEL=facebook/esm2_t33_650M_UR50D ESM_TAG=650M bash scripts/tier1_runs.sh
@@ -106,6 +108,9 @@ ESM_MODEL="${ESM_MODEL:-}"                           # e.g. facebook/esm2_t33_65
 ESM_TAG="${ESM_TAG:-650M}"                           # short label for output paths
 EXTRACT_WORKERS="${EXTRACT_WORKERS:-16}"
 ANALYSIS_ONLY="${ANALYSIS_ONLY:-0}"                  # 1 -> skip GPU sections, run E only
+COST="${COST:-0}"                                    # 1 -> print GPU cost estimate and exit
+GPU="${GPU:-A100}"                                   # GPU type for the cost prior
+RATE="${RATE:-}"                                     # override $/GPU-hr (else by GPU type)
 # Genome-level pooled features for the encoder-comparison probe (Section E).
 BASE_FEATURES="${BASE_FEATURES:-data/esm2_features.npz}"
 BIG_FEATURES="${BIG_FEATURES:-data/esm2_features_${ESM_TAG}.npz}"
@@ -131,6 +136,17 @@ run_analysis_tables() {
         python3 paper/encoder_comparison.py --out-dir paper/tables || echo "[warn] encoder_comparison"
     fi
 }
+
+# Dry run: estimate GPU-hours/$ from the manifest for the current config, then exit.
+if [ "$COST" = "1" ]; then
+    seed_count=$(echo "$SEEDS" | wc -w | tr -d ' ')
+    cost_args=(--esm-tag "$ESM_TAG" --max-proteins "$MAXPROT" --epochs "$EPOCHS"
+               --poolings $POOLINGS --splits $SPLITS --seeds "$seed_count" --gpu "$GPU")
+    [ -n "$ESM_MODEL" ] && cost_args+=(--extract)   # Section 0 only runs when re-embedding
+    [ -n "$RATE" ] && cost_args+=(--rate "$RATE")
+    python3 scripts/estimate_cost.py "${cost_args[@]}"
+    exit 0
+fi
 
 # Fast path: regenerate analysis tables only (no GPU, no training).
 if [ "$ANALYSIS_ONLY" = "1" ]; then

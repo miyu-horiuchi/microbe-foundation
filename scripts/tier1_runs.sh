@@ -111,6 +111,14 @@ ANALYSIS_ONLY="${ANALYSIS_ONLY:-0}"                  # 1 -> skip GPU sections, r
 COST="${COST:-0}"                                    # 1 -> print GPU cost estimate and exit
 GPU="${GPU:-A100}"                                   # GPU type for the cost prior
 RATE="${RATE:-}"                                     # override $/GPU-hr (else by GPU type)
+SMOKE="${SMOKE:-0}"                                  # 1 -> single quick run to prove the box
+
+# Smoke mode: one cheap run (set_transformer/family/seed0, few epochs) to verify
+# the box + synced embeddings load and train before the full-matrix spend.
+if [ "$SMOKE" = "1" ]; then
+    POOLINGS="set_transformer"; SPLITS="family"; SEEDS="0"
+    EPOCHS="${SMOKE_EPOCHS:-2}"   # few epochs; set SMOKE_EPOCHS to change
+fi
 # Genome-level pooled features for the encoder-comparison probe (Section E).
 BASE_FEATURES="${BASE_FEATURES:-data/esm2_features.npz}"
 BIG_FEATURES="${BIG_FEATURES:-data/esm2_features_${ESM_TAG}.npz}"
@@ -223,6 +231,16 @@ train_one() {
         "${pred_args[@]}" \
         "${extra[@]}"
 }
+
+# ---- SMOKE: one quick run to prove the box + data, then stop ---------------
+if [ "$SMOKE" = "1" ]; then
+    echo; echo "######## SMOKE: single set_transformer/family/seed0 run ($EPOCHS epochs) ########"
+    train_one set_transformer family 0
+    echo
+    echo "SMOKE OK. Inspect ${OUT_DIR}/set_transformer_family_s0.json"
+    echo "If that looks sane, run the full matrix: bash scripts/tier1_runs.sh"
+    exit 0
+fi
 
 # ---- A. Pooling x split x seed ---------------------------------------------
 echo; echo "######## A. POOLING COMPARISON ########"

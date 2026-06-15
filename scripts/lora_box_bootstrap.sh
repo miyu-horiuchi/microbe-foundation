@@ -36,10 +36,35 @@ MODES="${MODES:-frozen lora}" SEEDS="${SEEDS:-0}" EPOCHS="${EPOCHS:-5}" \
   EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights --max-genomes 15000}" \
   bash scripts/lora_runs.sh
 
-echo "=== [4/4] DONE ==="
-echo "results:"
-ls -la runs/lora/*.json 2>/dev/null || echo "  (no JSONs -- check the log above for errors)"
+echo "=== [4/5] save results to durable storage (Modal volume) ==="
+SAVE_OK=0
+if ls runs/lora/*.json >/dev/null 2>&1; then
+  cp -f "${PILOT_LOG:-$HOME/pilot.log}" runs/lora/pilot.log 2>/dev/null || true
+  # Table 31 (best-effort) so the artifact travels with the JSONs.
+  python3 paper/lora_finetune_compare.py --runs-dir runs/lora || true
+  cp -f paper/tables/31_lora_finetune.md runs/lora/ 2>/dev/null || true
+  if modal volume put microbe-esm2-perprotein runs/lora "${REMOTE_DIR:-lora_pilot}" --force; then
+    SAVE_OK=1
+    echo "  saved runs/lora -> modal volume microbe-esm2-perprotein:/${REMOTE_DIR:-lora_pilot}"
+  else
+    echo "  WARNING: modal volume put failed -- NOT terminating so you can recover."
+  fi
+else
+  echo "  no result JSONs -- NOT terminating; inspect the log above."
+fi
+
+echo "=== [5/5] auto-terminate ==="
+if [ "${AUTO_TERMINATE:-0}" = "1" ] && [ "$SAVE_OK" = "1" ] \
+   && [ -n "${LAMBDA_API_KEY:-}" ] && [ -n "${INSTANCE_ID:-}" ]; then
+  echo "  results saved; terminating instance $INSTANCE_ID to stop billing..."
+  curl -fsS -u "$LAMBDA_API_KEY:" -H "Content-Type: application/json" \
+    -X POST https://cloud.lambdalabs.com/api/v1/instance-operations/terminate \
+    -d "{\"instance_ids\":[\"$INSTANCE_ID\"]}" && echo "  terminate request sent." \
+    || echo "  WARNING: terminate API call failed -- terminate manually."
+else
+  echo "  auto-terminate skipped (AUTO_TERMINATE=${AUTO_TERMINATE:-0}, save_ok=$SAVE_OK)."
+fi
+
 echo
-echo "Now, from your LAPTOP, pull the JSONs back and push to GitHub:"
-echo "  mkdir -p runs/lora && scp \"ubuntu@\$IP:~/microbe-foundation/runs/lora/*.json\" runs/lora/"
-echo "  git add runs/lora/*.json && git commit -m 'pilot LoRA results' && git push"
+echo "=== DONE. To pull results onto your laptop (then the agent reads them): ==="
+echo "  modal volume get microbe-esm2-perprotein ${REMOTE_DIR:-lora_pilot} ./runs/lora_pilot --force"

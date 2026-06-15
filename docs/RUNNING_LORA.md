@@ -35,6 +35,45 @@ python3 finetune_lora.py --model-name mock --mode lora --smoke \
     --proteins-dir data/_mock_proteins --pooling set_transformer
 ```
 
+## 0. Scoped pilot, end to end (run from YOUR laptop)
+
+A sandboxed agent cannot reach Lambda/SSH/Modal/S3 (only GitHub). Run these on a
+machine with network access; the loop returns results to the agent via GitHub.
+
+```bash
+# --- on your laptop ---
+export LAMBDA_API_KEY=secret_...                      # your Lambda key
+GPU_KIND=gpu_1x_a100 bash scripts/lambda_launch.sh launch   # prints instance id + ip
+IP=<ip-from-output>
+
+# ship Modal creds so the box can pull raw sequences
+scp ~/.modal.toml ubuntu@$IP:~/.modal.toml
+
+ssh ubuntu@$IP <<'REMOTE'
+set -e
+git clone https://github.com/miyu-horiuchi/microbe-foundation && cd microbe-foundation
+git checkout feat/set-transformer-tier1                 # has finetune_lora.py
+bash scripts/lambda_install.sh
+pip install -r requirements.txt                          # pulls peft + accelerate
+pip install modal && mkdir -p data/esm2_proteins
+modal volume get microbe-esm2-perprotein proteins data/esm2_proteins/   # raw AA seqs
+# scoped pilot: 1 seed, frozen vs lora, 5 epochs, 15k-genome train cap, 150M
+MODES="frozen lora" SEEDS="0" EPOCHS=5 MAX_PROTEINS=128 \
+  PROTEINS=data/esm2_proteins \
+  EXTRA="--grad-checkpoint --balanced-families --class-weights --max-genomes 15000" \
+  bash scripts/lora_runs.sh
+# return results to the agent via GitHub
+git add runs/lora/*.json && git -c user.email=run@box -c user.name=box \
+  commit -m "pilot LoRA results (frozen vs lora, family, seed 0)" && git push origin HEAD
+REMOTE
+
+# tear down to stop billing
+bash scripts/lambda_launch.sh terminate <instance-id>
+```
+
+Then tell the agent "results pushed" -- it pulls `runs/lora/*.json`, builds Table 31
+(`paper/lora_finetune_compare.py`), and writes the manuscript section.
+
 ## 1. Provision a GPU box
 
 Lambda Cloud, one command (see `scripts/lambda_launch.sh`):

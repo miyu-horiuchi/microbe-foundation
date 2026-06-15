@@ -108,6 +108,19 @@ def build_train_loader(args):
         df = df[keep].reset_index(drop=True)
         feat_paths = df.bacdive_id.map(id_to_path).tolist()
         input_dim = int(np.load(feat_paths[0]).shape[1])
+    elif args.features is not None:
+        # real pre-pooled (mean-pooled) embeddings -- CPU-friendly. Profiles the
+        # trainable encoder MLP + heads on top of the frozen pooled representation.
+        npz = np.load(args.features)
+        feat_ids = npz["bacdive_ids"]
+        feat_mat = npz["features"]
+        id_to_row = {int(b): i for i, b in enumerate(feat_ids)}
+        keep = df.bacdive_id.map(id_to_row.__contains__).fillna(False).values
+        df = df[keep].reset_index(drop=True)
+        rows = df.bacdive_id.map(id_to_row).values
+        features = torch.tensor(feat_mat[rows], dtype=torch.float32)
+        input_dim = features.shape[1]
+        print(f"[real] mean-pooled features [{len(df)}, {input_dim}] from {args.features}")
     else:
         # random pre-pooled features -- lets the script dry-run with no embeddings.
         features = torch.randn(len(df), args.feat_dim)
@@ -151,6 +164,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--per-protein", type=Path, default=None)
+    ap.add_argument("--features", type=Path, default=None,
+                    help="real pre-pooled embeddings .npz (CPU path; profiles encoder+heads).")
     ap.add_argument("--split-level", choices=["species", "genus", "family"],
                     default="species")
     ap.add_argument("--pooling",

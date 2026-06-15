@@ -145,10 +145,26 @@ class Esm2Encoder(nn.Module):
     def __init__(self, model_name: str, mode: str, lora_r: int, lora_alpha: int,
                  lora_dropout: float, target_modules, grad_checkpoint: bool):
         super().__init__()
-        from transformers import AutoModel, AutoTokenizer
+        from transformers import AutoTokenizer
+
+        # Import EsmModel EXPLICITLY (not via AutoModel). AutoModel resolves the
+        # class through a lazy mapping whose `hasattr` swallows the real import
+        # error and reports the useless "Could not find EsmModel neither in ..."
+        # ValueError. That masked a polluted environment on the GPU box (system
+        # dist-packages + pip --user collision breaking modeling_esm). The direct
+        # import surfaces the true traceback, and we wrap it with a clear hint.
+        try:
+            from transformers import EsmModel
+        except Exception as e:  # pragma: no cover - environment guard
+            raise RuntimeError(
+                "transformers is installed but EsmModel failed to import. This is "
+                "almost always a polluted Python environment (system packages "
+                "shadowing/colliding with pip --user installs). Run inside a clean "
+                "venv so transformers/peft are isolated. Original error: "
+                f"{e!r}") from e
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        base = AutoModel.from_pretrained(model_name)
+        base = EsmModel.from_pretrained(model_name)
         self.out_dim = base.config.hidden_size
         if grad_checkpoint:
             base.gradient_checkpointing_enable()

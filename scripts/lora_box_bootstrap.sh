@@ -15,18 +15,68 @@
 #     bash scripts/lora_box_bootstrap.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export PATH="$HOME/.local/bin:$PATH"   # pip --user installs land here (modal CLI)
 
-echo "=== [1/4] base install ==="
-bash scripts/lambda_install.sh || true
-pip install -r requirements.txt
-pip install -q modal
-# The box's system torch is built against NumPy 1.x; NumPy 2 breaks torch<->numpy
-# interop ("_ARRAY_API not found"). Pin <2 so tensor/array conversions work.
-pip install -q "numpy<2"
-python3 -c "import torch, numpy as np; torch.from_numpy(np.zeros(2)); print('torch/numpy OK', np.__version__)"
+# --------------------------------------------------------------------------- #
+# [1/5] ISOLATED venv install.
+#
+# Why a venv: the box's previous failure ("Could not find EsmModel neither in
+# transformers.models.esm ...") was NOT a code bug. It came from `pip install
+# --user` layering transformers on top of the box's system/conda packages in
+# /usr/lib (or the conda env), producing a Frankenstein transformers whose
+# modeling_esm failed to import -- and AutoModel's lazy loader masked the real
+# error. Verified locally: a clean isolated transformers==4.57.x imports
+# EsmModel fine. So we install the ML stack into a dedicated venv that SHADOWS
+# any system packages, eliminating the collision entirely.
+#
+# --system-site-packages: reuse the box's already-working CUDA torch (zero risk
+# of a CUDA/driver mismatch from a fresh torch wheel) and heavy compiled deps
+# (pyrodigal/biopython/pandas). transformers/peft/accelerate/numpy installed
+# into the venv take precedence over anything inherited.
+# --------------------------------------------------------------------------- #
+echo "=== [1/5] isolated venv install ==="
+VENV="${VENV:-$HOME/.venv_lora}"
+if [ ! -d "$VENV" ]; then
+  python3 -m venv --system-site-packages "$VENV"
+fi
+# shellcheck disable=SC1091
+. "$VENV/bin/activate"
+python3 -m pip install -q --upgrade pip
 
-echo "=== [2/4] sync raw protein sequences from Modal volume ==="
+# The box's torch is built against NumPy 1.x; NumPy 2 breaks torch<->numpy
+# interop ("_ARRAY_API not found"). Pin <2 (into the venv) so conversions work.
+python3 -m pip install -q "numpy<2"
+# The LoRA stack, isolated in the venv (shadows any system transformers/peft).
+python3 -m pip install -q "transformers>=4.40,<4.58" "peft>=0.11,<0.14" \
+  "accelerate>=0.30" modal
+
+# --------------------------------------------------------------------------- #
+# PREFLIGHT -- fail fast BEFORE syncing data or spending GPU time. The two
+# things that actually broke the box: torch<->numpy interop and the masked
+# EsmModel import. If either is wrong, abort now (cheap) instead of after the
+# data download (expensive).
+# --------------------------------------------------------------------------- #
+echo "--- preflight: torch/numpy interop + CUDA + EsmModel import ---"
+python3 - <<'PYEOF'
+import sys
+import numpy as np, torch
+torch.from_numpy(np.zeros(2))                     # ABI interop
+print(f"  torch {torch.__version__}  numpy {np.__version__}  "
+      f"cuda_available={torch.cuda.is_available()}")
+if not torch.cuda.is_available():
+    sys.exit("PREFLIGHT FAIL: CUDA not available to torch inside the venv.")
+import transformers
+print(f"  transformers {transformers.__version__}")
+try:
+    from transformers import EsmModel  # explicit -> real traceback if broken
+except Exception as e:
+    raise SystemExit(
+        "PREFLIGHT FAIL: EsmModel import broken (env pollution). "
+        f"Real error: {e!r}")
+print("  EsmModel import OK")
+print("PREFLIGHT OK")
+PYEOF
+
+echo "=== [2/5] sync raw protein sequences from Modal volume ==="
 mkdir -p data/esm2_proteins
 if [ -z "$(ls -A data/esm2_proteins 2>/dev/null)" ]; then
   python3 -m modal volume get microbe-esm2-perprotein proteins data/esm2_proteins/
@@ -35,7 +85,7 @@ else
 fi
 echo "  genomes with sequences: $(find data/esm2_proteins -name '*.txt.gz' | wc -l)"
 
-echo "=== [3/4] run scoped LoRA pilot ==="
+echo "=== [3/5] run scoped LoRA pilot ==="
 MODES="${MODES:-frozen lora}" SEEDS="${SEEDS:-0}" EPOCHS="${EPOCHS:-5}" \
   MAX_PROTEINS="${MAX_PROTEINS:-128}" PROTEINS="${PROTEINS:-data/esm2_proteins}" \
   EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights --max-genomes 15000}" \

@@ -15,16 +15,21 @@
 #     bash scripts/lora_box_bootstrap.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export PATH="$HOME/.local/bin:$PATH"   # pip --user installs land here (modal CLI)
 
 echo "=== [1/4] base install ==="
 bash scripts/lambda_install.sh || true
 pip install -r requirements.txt
 pip install -q modal
+# The box's system torch is built against NumPy 1.x; NumPy 2 breaks torch<->numpy
+# interop ("_ARRAY_API not found"). Pin <2 so tensor/array conversions work.
+pip install -q "numpy<2"
+python3 -c "import torch, numpy as np; torch.from_numpy(np.zeros(2)); print('torch/numpy OK', np.__version__)"
 
 echo "=== [2/4] sync raw protein sequences from Modal volume ==="
 mkdir -p data/esm2_proteins
 if [ -z "$(ls -A data/esm2_proteins 2>/dev/null)" ]; then
-  modal volume get microbe-esm2-perprotein proteins data/esm2_proteins/
+  python3 -m modal volume get microbe-esm2-perprotein proteins data/esm2_proteins/
 else
   echo "  data/esm2_proteins already populated, skipping."
 fi
@@ -43,7 +48,7 @@ if ls runs/lora/*.json >/dev/null 2>&1; then
   # Table 31 (best-effort) so the artifact travels with the JSONs.
   python3 paper/lora_finetune_compare.py --runs-dir runs/lora || true
   cp -f paper/tables/31_lora_finetune.md runs/lora/ 2>/dev/null || true
-  if modal volume put microbe-esm2-perprotein runs/lora "${REMOTE_DIR:-lora_pilot}" --force; then
+  if python3 -m modal volume put microbe-esm2-perprotein runs/lora "${REMOTE_DIR:-lora_pilot}" --force; then
     SAVE_OK=1
     echo "  saved runs/lora -> modal volume microbe-esm2-perprotein:/${REMOTE_DIR:-lora_pilot}"
   else

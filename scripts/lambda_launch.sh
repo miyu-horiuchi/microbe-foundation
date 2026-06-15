@@ -158,6 +158,44 @@ READY. instance=$id  ip=$ip
 EOF
 }
 
+cmd_pickkey() {  # find which registered Lambda key has a local private half
+    local localpubs; localpubs="$(ls ~/.ssh/*.pub 2>/dev/null || true)"
+    _api GET /ssh-keys | LOCALPUBS="$localpubs" "$PY" -c '
+import sys, json, os
+reg = json.load(sys.stdin)["data"]
+def tok(s):
+    p = s.split()
+    return p[1] if len(p) > 1 else s
+regmap = {tok(k["public_key"]): k["name"] for k in reg}
+found = False
+for pub in os.environ["LOCALPUBS"].split():
+    try:
+        t = tok(open(pub).read().strip())
+    except Exception:
+        continue
+    if t in regmap:
+        priv = pub[:-4]
+        print(f"MATCH  lambda-key-name={regmap[t]!r}  local-private={priv}  present={os.path.exists(priv)}")
+        found = True
+if not found:
+    print("No local pubkey matches a registered Lambda key.")
+    print("Registered names:", ", ".join(k["name"] for k in reg))
+    print("Add one with: bash scripts/lambda_launch.sh addkey <name> ~/.ssh/id_ed25519.pub")
+'
+}
+
+cmd_addkey() {  # addkey <name> <pubkey-file>
+    local name="${1:?usage: addkey <name> <pubkey-file>}" file="${2:?usage: addkey <name> <pubkey-file>}"
+    local body; body="$(NAME="$name" FILE="$file" "$PY" -c '
+import json, os
+print(json.dumps({"name": os.environ["NAME"],
+                  "public_key": open(os.path.expanduser(os.environ["FILE"])).read().strip()}))')"
+    _api POST /ssh-keys "$body" | "$PY" -c '
+import sys, json
+d = json.load(sys.stdin)
+print("added Lambda key:", d.get("data", {}).get("name") or d)'
+}
+
 cmd_status() {  # status <id>
     _api GET "/instances/$1" | "$PY" -c '
 import sys, json
@@ -180,7 +218,9 @@ print("terminated:", ", ".join(i["id"] for i in d) or "(none)")
 case "${1:-list}" in
     list)       cmd_list ;;
     launch)     cmd_launch ;;
+    pickkey)    cmd_pickkey ;;
+    addkey)     cmd_addkey "${2:-}" "${3:-}" ;;
     status)     cmd_status "${2:?usage: status <instance-id>}" ;;
     terminate)  cmd_terminate "${2:?usage: terminate <instance-id>}" ;;
-    *) echo "usage: $0 {list|launch|status <id>|terminate <id>}" >&2; exit 1 ;;
+    *) echo "usage: $0 {list|launch|pickkey|addkey <name> <pubfile>|status <id>|terminate <id>}" >&2; exit 1 ;;
 esac

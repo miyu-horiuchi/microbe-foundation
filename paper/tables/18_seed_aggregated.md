@@ -10,7 +10,7 @@
 | mean | family | yes | MACRO (mean over traits) | score | 0.5963 | ±0.1235 | 0.2648 | 20 |
 | mean | genus | no | MACRO (mean over traits) | score | 0.6294 | ±0.1214 | 0.2603 | 20 |
 | mean | species | no | MACRO (mean over traits) | score | 0.6408 | ±0.1178 | 0.2526 | 20 |
-| set_transformer | family | no | MACRO (mean over traits) | score | 0.5388 | ±0.1081 | 0.2317 | 20 |
+| set_transformer | family | no | MACRO (mean over traits) | score | 0.5979 | ±0.1219 | 0.2613 | 20 |
 | set_transformer | family | yes | MACRO (mean over traits) | score | 0.6105 | ±0.1195 | 0.2561 | 20 |
 | set_transformer | genus | no | MACRO (mean over traits) | score | 0.6301 | ±0.1235 | 0.2648 | 20 |
 | set_transformer | species | no | MACRO (mean over traits) | score | 0.6416 | ±0.1194 | 0.2560 | 20 |
@@ -182,27 +182,27 @@
 | mean | species | no | pigmentation | acc | 0.7158 | ±0.0012 | 0.0005 | 3 |
 | mean | species | no | sporulation | acc | 0.9428 | ±0.0019 | 0.0008 | 3 |
 | mean | species | no | temperature_class | acc | 0.8081 | ±0.0039 | 0.0016 | 3 |
-| set_transformer | family | no | amr_phenotype | f1 | 0.3885 | ±0.0426 | 0.0171 | 3 |
-| set_transformer | family | no | biosafety_level | acc | 0.6201 | ±0.8024 | 0.3230 | 3 |
-| set_transformer | family | no | carbon_utilization | f1 | 0.5091 | ±0.0117 | 0.0047 | 3 |
-| set_transformer | family | no | catalase | acc | 0.8519 | ±0.0795 | 0.0320 | 3 |
-| set_transformer | family | no | cell_shape | acc | 0.4480 | ±0.0845 | 0.0340 | 3 |
-| set_transformer | family | no | country | acc | 0.0141 | ±0.0142 | 0.0057 | 3 |
-| set_transformer | family | no | cultivation_medium | f1 | 0.2599 | ±0.2848 | 0.1146 | 3 |
-| set_transformer | family | no | cytochrome_oxidase | acc | 0.7985 | ±0.1705 | 0.0686 | 3 |
-| set_transformer | family | no | fatty_acid_profile | rmse | 0.1189 | ±0.0176 | 0.0071 | 3 |
-| set_transformer | family | no | gram_stain | acc | 0.8476 | ±0.3228 | 0.1299 | 3 |
-| set_transformer | family | no | halophily | acc | 0.4033 | ±0.3135 | 0.1262 | 3 |
-| set_transformer | family | no | isolation_source | acc | 0.3633 | ±0.2354 | 0.0947 | 3 |
-| set_transformer | family | no | metabolite_production | f1 | 0.1340 | ±0.0877 | 0.0353 | 3 |
-| set_transformer | family | no | motility | acc | 0.5869 | ±0.3269 | 0.1316 | 3 |
-| set_transformer | family | no | oxygen_tolerance | acc | 0.5200 | ±0.2426 | 0.0977 | 3 |
-| set_transformer | family | no | pathogenicity_animal | acc | 0.6903 | ±0.5463 | 0.2199 | 3 |
-| set_transformer | family | no | pathogenicity_human | acc | 0.6073 | ±0.9229 | 0.3715 | 3 |
-| set_transformer | family | no | ph_class | acc | 0.5347 | ±0.1220 | 0.0491 | 3 |
-| set_transformer | family | no | pigmentation | acc | 0.7344 | ±0.0050 | 0.0020 | 3 |
-| set_transformer | family | no | sporulation | acc | 0.8088 | ±0.4983 | 0.2006 | 3 |
-| set_transformer | family | no | temperature_class | acc | 0.6555 | ±0.3391 | 0.1365 | 3 |
+| set_transformer | family | no | amr_phenotype | f1 | 0.3786 | ±0.0186 | 0.0021 | 2 |
+| set_transformer | family | no | biosafety_level | acc | 0.8064 | ±0.1777 | 0.0198 | 2 |
+| set_transformer | family | no | carbon_utilization | f1 | 0.5068 | ±0.0335 | 0.0037 | 2 |
+| set_transformer | family | no | catalase | acc | 0.8691 | ±0.1456 | 0.0162 | 2 |
+| set_transformer | family | no | cell_shape | acc | 0.4674 | ±0.0559 | 0.0062 | 2 |
+| set_transformer | family | no | country | acc | 0.0172 | ±0.0238 | 0.0026 | 2 |
+| set_transformer | family | no | cultivation_medium | f1 | 0.3258 | ±0.1254 | 0.0140 | 2 |
+| set_transformer | family | no | cytochrome_oxidase | acc | 0.8381 | ±0.0047 | 0.0005 | 2 |
+| set_transformer | family | no | fatty_acid_profile | rmse | 0.1194 | ±0.0893 | 0.0099 | 2 |
+| set_transformer | family | no | gram_stain | acc | 0.9226 | ±0.0349 | 0.0039 | 2 |
+| set_transformer | family | no | halophily | acc | 0.4761 | ±0.0000 | 0.0000 | 2 |
+| set_transformer | family | no | isolation_source | acc | 0.4062 | ±0.7465 | 0.0831 | 2 |
+| set_transformer | family | no | metabolite_production | f1 | 0.1142 | ±0.1008 | 0.0112 | 2 |
+| set_transformer | family | no | motility | acc | 0.6607 | ±0.3954 | 0.0440 | 2 |
+| set_transformer | family | no | oxygen_tolerance | acc | 0.5764 | ±0.0029 | 0.0003 | 2 |
+| set_transformer | family | no | pathogenicity_animal | acc | 0.8164 | ±0.3367 | 0.0375 | 2 |
+| set_transformer | family | no | pathogenicity_human | acc | 0.8214 | ±0.2652 | 0.0295 | 2 |
+| set_transformer | family | no | ph_class | acc | 0.5630 | ±0.0427 | 0.0048 | 2 |
+| set_transformer | family | no | pigmentation | acc | 0.7335 | ±0.0168 | 0.0019 | 2 |
+| set_transformer | family | no | sporulation | acc | 0.9246 | ±0.0471 | 0.0052 | 2 |
+| set_transformer | family | no | temperature_class | acc | 0.7343 | ±0.0282 | 0.0031 | 2 |
 | set_transformer | family | yes | amr_phenotype | f1 | 0.3826 | ±0.0147 | 0.0059 | 3 |
 | set_transformer | family | yes | biosafety_level | acc | 0.8386 | ±0.0475 | 0.0191 | 3 |
 | set_transformer | family | yes | carbon_utilization | f1 | 0.4660 | ±0.0220 | 0.0088 | 3 |

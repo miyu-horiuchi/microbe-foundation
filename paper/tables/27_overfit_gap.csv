@@ -1,0 +1,4 @@
+split,n_seeds,macro_train,ci_train,macro_test,ci_test,gap_train_minus_test
+species,3,0.6784,0.0012,0.6647,0.0036,0.0137
+genus,3,0.6886,0.0028,0.6583,0.0044,0.0303
+family,3,0.6829,0.0042,0.6467,0.0027,0.0361

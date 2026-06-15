@@ -1,0 +1,12 @@
+cell,pooling,split,balanced,n_seeds,pool_eff_mean,pool_eff_min,pool_eff_max,pool_eff_spread,pool_rank_frac_mean,enc_rank_frac_mean,enc_rank_frac_min,enc_rank_frac_max
+attention/species,attention,species,0,3,4.098,3.9925,4.3042,0.3118,0.5056,0.1558,0.1549,0.157
+attention/genus,attention,genus,0,3,3.5235,3.3842,3.6673,0.283,0.5047,0.1471,0.1445,0.1497
+attention/family,attention,family,0,1,3.6972,3.6972,3.6972,0.0,0.505,0.1518,0.1518,0.1518
+mean/species,mean,species,0,3,nan,nan,nan,nan,nan,0.1037,0.1027,0.1045
+mean/genus,mean,genus,0,3,nan,nan,nan,nan,nan,0.1002,0.1001,0.1004
+mean/family,mean,family,0,3,nan,nan,nan,nan,nan,0.102,0.0998,0.1052
+mean/family (bal),mean,family,1,3,nan,nan,nan,nan,nan,0.0931,0.0911,0.0971
+set_transformer/species,set_transformer,species,0,3,96.6462,93.8455,100.2364,6.391,0.151,0.3837,0.3818,0.3853
+set_transformer/genus,set_transformer,genus,0,3,98.1441,92.5482,104.9988,12.4507,0.1534,0.354,0.3535,0.3544
+set_transformer/family,set_transformer,family,0,2,84.9817,65.5421,104.4213,38.8792,0.1328,0.3666,0.3643,0.3689
+set_transformer/family (bal),set_transformer,family,1,3,87.7366,81.0748,100.7682,19.6934,0.1371,0.2844,0.2821,0.2875

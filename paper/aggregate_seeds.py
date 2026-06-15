@@ -58,14 +58,25 @@ def mean_std_ci(values: list[float]) -> dict[str, float]:
             "lo": mean - ci, "hi": mean + ci}
 
 
-def collect(runs_dir: Path) -> dict[tuple, list[float]]:
-    """Map (pooling, split, balanced, trait, metric_kind) -> list of scores."""
+def collect(runs_dir: Path, min_epochs: int = 0) -> dict[tuple, list[float]]:
+    """Map (pooling, split, balanced, trait, metric_kind) -> list of scores.
+
+    Runs whose `epochs` field is below `min_epochs` are skipped: smoke-test
+    checkpoints (e.g. 2-epoch runs) are near-random and would corrupt the
+    mean/CI of the cell they fall into.
+    """
     groups: dict[tuple, list[float]] = defaultdict(list)
     files = sorted(runs_dir.glob("*.json"))
     if not files:
         raise SystemExit(f"no *.json metric files in {runs_dir}")
+    n_used = 0
     for fp in files:
         d = json.loads(fp.read_text())
+        ep = d.get("epochs")
+        if min_epochs and ep is not None and ep < min_epochs:
+            print(f"[skip] {fp.name}: epochs={ep} < {min_epochs} (smoke/undertrained run)")
+            continue
+        n_used += 1
         pooling = d.get("pooling", "?")
         split = d.get("split_level", "?")
         balanced = bool(d.get("balanced_families", False))
@@ -75,6 +86,7 @@ def collect(runs_dir: Path) -> dict[tuple, list[float]]:
             if kind is None or score is None:
                 continue
             groups[(pooling, split, balanced, trait, kind)].append(float(score))
+    print(f"[aggregate] used {n_used}/{len(files)} metric files")
     return groups
 
 
@@ -140,9 +152,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--runs-dir", type=Path, default=Path("runs/tier1"))
     ap.add_argument("--out", type=Path, default=Path("paper/tables"))
+    ap.add_argument("--min-epochs", type=int, default=40,
+                    help="Exclude runs trained for fewer epochs (smoke tests).")
     args = ap.parse_args()
 
-    groups = collect(args.runs_dir)
+    groups = collect(args.runs_dir, min_epochs=args.min_epochs)
     rows = aggregate(groups)
     macro = macro_rows(rows)
 

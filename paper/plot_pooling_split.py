@@ -57,12 +57,18 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--runs-dir", type=Path, default=Path("runs/tier1_pull"))
     ap.add_argument("--out", type=Path, default=Path("paper/figures/18_pooling_split_macro.png"))
+    ap.add_argument("--min-epochs", type=int, default=40,
+                    help="Exclude runs trained for fewer epochs (smoke tests).")
     args = ap.parse_args()
 
     # (pooling, column-label) -> list of per-seed macro scores
     groups: dict[tuple[str, str], list[float]] = defaultdict(list)
     for fp in sorted(args.runs_dir.glob("*.json")):
         d = json.loads(fp.read_text())
+        ep = d.get("epochs")
+        if args.min_epochs and ep is not None and ep < args.min_epochs:
+            print(f"[skip] {fp.name}: epochs={ep} < {args.min_epochs} (smoke/undertrained run)")
+            continue
         pooling = d.get("pooling", "?")
         split = d.get("split_level", "?")
         balanced = bool(d.get("balanced_families", False))
@@ -100,7 +106,7 @@ def main() -> None:
 
     ax.set_xticks(x)
     ax.set_xticklabels(["Species", "Genus", "Family", "Family\n(balanced)"])
-    ax.set_ylabel("Macro trait-prediction score\n(mean over 20 traits, ±95% CI over 3 seeds)")
+    ax.set_ylabel("Macro trait-prediction score\n(mean over 20 traits, ±95% CI over seeds)")
     ax.set_title("Cross-clade generalization by pooling architecture")
     ax.set_ylim(0.45, 0.70)
     ax.axvspan(-0.5, 1.5, alpha=0.05, color="green")

@@ -908,6 +908,14 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
                 g["lr"] = lr_at(step)
             preds = _model_forward(model, feats, device)
             loss, _ = masked_loss(preds, labels, masks, specs, weights=class_weights)
+            # Guard: a batch in which every head has zero labeled samples yields a
+            # constant zero loss with no grad_fn (masked_loss returns tensor(0.0)).
+            # Calling backward() on it raises "element 0 ... does not require grad".
+            # This is rare but inevitable under family-balanced resampling, so skip
+            # such batches rather than letting them crash the whole run.
+            if loss.grad_fn is None or not loss.requires_grad:
+                step += 1
+                continue
             optim.zero_grad()
             loss.backward()
             optim.step()

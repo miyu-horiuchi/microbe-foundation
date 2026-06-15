@@ -19,6 +19,11 @@ torch>=2.2
 # fetch/parse/splits/vocab/model with random features.
 transformers>=4.40,<4.58  # 4.57.x is the verified-working set; a partial/downgraded install on the GPU box broke EsmModel + the dtype kwarg
 
+# Encoder LoRA fine-tuning (finetune_lora.py) — GPU box only. peft must be
+# compatible with the transformers ceiling above; accelerate for mixed precision.
+peft>=0.11,<0.14
+accelerate>=0.30
+
 # Optional baselines
 scikit-learn>=1.4
 scipy>=1.11

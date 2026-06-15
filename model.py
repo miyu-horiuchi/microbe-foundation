@@ -738,19 +738,25 @@ def _model_forward(model, feats, device):
 # =============================================================================
 
 
-def run_eval(model, loader, specs, device) -> dict[str, dict[str, float]]:
+def run_eval(model, loader, specs, device, forward_fn=None) -> dict[str, dict[str, float]]:
     """Compute per-head metrics on a split.
 
     Returns {head_name: {metric_kind: score, ...}}. binary/multiclass heads
     emit both `acc` and `f1` (macro for multiclass; positive-class for binary).
     Multilabel emits sample-averaged `f1`. Regression emits `rmse`.
+
+    `forward_fn(model, feats, device) -> preds` defaults to `_model_forward`
+    (precomputed-feature path). Pass a custom forward for models whose batch
+    `feats` are not plain tensors (e.g. tokenized sequences for an in-graph
+    encoder).
     """
+    forward_fn = forward_fn or _model_forward
     model.train(False)
     # Accumulators per head — list of (pred, true, mask) tensors.
     buf: dict[str, dict[str, list]] = {}
     with torch.no_grad():
         for feats, labels, masks in loader:
-            preds = _model_forward(model, feats, device)
+            preds = forward_fn(model, feats, device)
             for name, pred in preds.items():
                 spec = specs[name]
                 h = spec["head_type"]

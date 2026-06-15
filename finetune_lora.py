@@ -243,7 +243,11 @@ def build_loaders(args, seed):
     df["ppath"] = df.bacdive_id.map(path_for)
     df = df[df.ppath.notna()].reset_index(drop=True)
     if args.max_genomes:
-        df = df.groupby("split", group_keys=False).head(args.max_genomes).reset_index(drop=True)
+        # Seeded random subsample per split (NOT file order: avoids taxonomic
+        # bias when the parquet is sorted by lineage, which would skew a family split).
+        parts = [g.sample(n=min(len(g), args.max_genomes), random_state=seed)
+                 for _, g in df.groupby("split")]
+        df = M.pd.concat(parts).reset_index(drop=True)
     if len(df) == 0:
         raise SystemExit(f"no genomes with sequences under {pdir}")
 

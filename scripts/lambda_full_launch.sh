@@ -32,7 +32,7 @@ MODAL_TOML="${MODAL_TOML:-$HOME/.modal.toml}"
 # fan the (mode, seed) jobs out one-per-GPU instead of running them sequentially.
 FWD=""
 for k in MODEL MAX_GENOMES EPOCHS MAX_PROTEINS MODES SEEDS PARALLEL NUM_GPUS \
-         ENC_MICROBATCH REMOTE_DIR; do
+         ENC_MICROBATCH REMOTE_DIR AUTO_TERMINATE INCREMENTAL_MODAL; do
   v="${!k:-}"; [ -n "$v" ] && FWD="$FWD $k=$v"
 done
 

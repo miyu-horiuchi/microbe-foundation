@@ -20,9 +20,11 @@ torch>=2.2
 # transformers/Pillow compatibility. Older Python can still run
 # fetch/parse/splits/vocab/model with random features.
 transformers>=4.40,<4.58  # 4.57.x verified-working. NOTE: the GPU-box "Could not
-# find EsmModel" failure was NOT a version problem -- it was a polluted env (system
-# packages colliding with pip --user). The LoRA path (finetune_lora.py) must run in
-# an ISOLATED venv; see scripts/lora_box_bootstrap.sh.
+# find EsmModel" failure was NOT a version problem -- transformers' EsmModel import
+# chain pulls image_utils, which needs PIL.Image.Resampling (Pillow >= 9.1). The
+# box's stale apt Pillow lacked it. The LoRA path (finetune_lora.py) runs in a venv;
+# see scripts/lora_box_bootstrap.sh.
+Pillow>=10  # transformers image_utils needs PIL.Image.Resampling (>=9.1); pin modern
 
 # Encoder LoRA fine-tuning (finetune_lora.py) — GPU box only. peft must be
 # compatible with the transformers ceiling above; accelerate for mixed precision.

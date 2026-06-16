@@ -42,9 +42,16 @@ fi
 . "$VENV/bin/activate"
 python3 -m pip install -q --upgrade pip
 
-# The box's torch is built against NumPy 1.x; NumPy 2 breaks torch<->numpy
-# interop ("_ARRAY_API not found"). Pin <2 (into the venv) so conversions work.
-python3 -m pip install -q "numpy<2"
+# Shadow the box's ANCIENT apt packages with modern venv-local ones. Two have
+# bitten us:
+#   * Pillow < 9.1 lacks PIL.Image.Resampling, which transformers' image_utils
+#     imports on the EsmModel path -> the real cause of the "Could not find
+#     EsmModel" / "cannot import name EsmModel" failures. `pip install
+#     transformers` does NOT pull Pillow (it's an optional vision dep), so the
+#     stale system Pillow stayed exposed under --system-site-packages.
+#   * numpy 1.21.x (apt) is old; pin a newer 1.x (NumPy 2 breaks the box torch's
+#     NumPy-1.x C-ABI: "_ARRAY_API not found").
+python3 -m pip install -q "numpy>=1.23,<2" "Pillow>=10"
 # The LoRA stack, isolated in the venv (shadows any system transformers/peft).
 python3 -m pip install -q "transformers>=4.40,<4.58" "peft>=0.11,<0.14" \
   "accelerate>=0.30" modal

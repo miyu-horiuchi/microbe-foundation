@@ -52,6 +52,11 @@ python3 -m pip install -q --upgrade pip
 #   * numpy 1.21.x (apt) is old; pin a newer 1.x (NumPy 2 breaks the box torch's
 #     NumPy-1.x C-ABI: "_ARRAY_API not found").
 python3 -m pip install -q "numpy>=1.23,<2" "Pillow>=10"
+# Data stack for model.py/finetune_lora.py (read_parquet needs pyarrow). The box's
+# pyarrow lived in ~/.local, which the venv does not see -> install venv-local so
+# pandas + pyarrow + numpy are a consistent set. (model.py/finetune_lora.py use
+# only numpy/pandas/torch -- no sklearn/scipy/xgboost.)
+python3 -m pip install -q "pandas>=2.0" "pyarrow>=15"
 # The LoRA stack, isolated in the venv (shadows any system transformers/peft).
 python3 -m pip install -q "transformers>=4.40,<4.58" "peft>=0.11,<0.14" \
   "accelerate>=0.30" modal

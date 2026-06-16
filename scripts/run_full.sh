@@ -50,11 +50,17 @@ export REMOTE_DIR="${REMOTE_DIR:-lora_full}"
 # through to the box; unset/empty = single-GPU sequential default.
 export PARALLEL="${PARALLEL:-}"
 export NUM_GPUS="${NUM_GPUS:-}"
+# Multi-GPU DATA PARALLELISM (DDP): shard EACH batch of the slow LoRA arm across
+# N GPUs via torchrun -> ~Nx faster. NPROC (alias GPUS_PER_NODE) = processes/GPUs
+# per job: ""/1 = single-GPU (default, unchanged), "auto" = all visible GPUs,
+# "<N>" = N GPUs. Takes precedence over the across-GPU parallel runner; the frozen
+# arm always stays single-GPU (already fast). Forwarded to the box.
+export NPROC="${NPROC:-${GPUS_PER_NODE:-}}"
 
 echo "=== run_full.sh ==="
 echo "  model=$MODEL genomes=$MAX_GENOMES epochs=$EPOCHS max_proteins=$MAX_PROTEINS enc_microbatch=$ENC_MICROBATCH"
 echo "  modes=[$MODES] seeds=[$SEEDS] auto_terminate=$AUTO_TERMINATE save_mode=$SAVE_MODE remote_dir=$REMOTE_DIR"
-echo "  parallel=${PARALLEL:-<off>} num_gpus=${NUM_GPUS:-<auto>}"
+echo "  parallel=${PARALLEL:-<off>} num_gpus=${NUM_GPUS:-<auto>} nproc(ddp)=${NPROC:-<off>}"
 echo "  instance_id=${INSTANCE_ID:-<unset>} lambda_key=$([ -n "${LAMBDA_API_KEY:-}" ] && echo set || echo UNSET)"
 
 exec bash scripts/lora_box_bootstrap.sh

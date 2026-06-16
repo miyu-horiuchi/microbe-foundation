@@ -123,8 +123,28 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   GPU_COUNT="$(nvidia-smi -L 2>/dev/null | wc -l | tr -d ' ')"
   GPU_COUNT="${GPU_COUNT:-1}"
 fi
+
+# Two DIFFERENT multi-GPU strategies; pick exactly one:
+#   * DDP (NPROC>1): shard EACH batch of ONE job across N GPUs (torch
+#     DistributedDataParallel via torchrun). This is what makes the slow LoRA arm
+#     ~Nx faster when you have few (mode,seed) jobs but a big per-job cost. Uses
+#     the sequential runner (lora_runs.sh), which fires torchrun for lora/full.
+#   * Across-GPU parallel (PARALLEL / auto on >1 GPU): pin each INDEPENDENT
+#     (mode,seed) job to its own GPU (lora_runs_parallel.sh). Best when you have
+#     many jobs (e.g. 3 seeds x 2 modes) and a cheap-enough per-job cost.
+# DDP takes precedence when requested, since it already consumes all the GPUs for
+# the single heavy job.
+NPROC="${NPROC:-${GPUS_PER_NODE:-}}"
+DDP_ON=0
+case "$NPROC" in
+  ""|0|1) DDP_ON=0 ;;
+  auto)   [ "${GPU_COUNT:-1}" -gt 1 ] 2>/dev/null && DDP_ON=1 ;;
+  *)      [ "$NPROC" -gt 1 ] 2>/dev/null && DDP_ON=1 ;;
+esac
 RUNNER="scripts/lora_runs.sh"
-if [ "${PARALLEL:-0}" = "1" ] || [ "${GPU_COUNT:-1}" -gt 1 ] 2>/dev/null; then
+if [ "$DDP_ON" = "1" ]; then
+  echo "  DDP runner: lora/full arm sharded across NPROC=$NPROC GPU(s) via torchrun (frozen stays single-GPU)"
+elif [ "${PARALLEL:-0}" = "1" ] || [ "${GPU_COUNT:-1}" -gt 1 ] 2>/dev/null; then
   RUNNER="scripts/lora_runs_parallel.sh"
   echo "  parallel runner selected (PARALLEL=${PARALLEL:-0}, gpus=$GPU_COUNT)"
 fi
@@ -135,7 +155,7 @@ MODES="${MODES:-frozen lora}" SEEDS="${SEEDS:-0}" EPOCHS="${EPOCHS:-5}" \
   EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights --max-genomes ${MAX_GENOMES:-15000}}" \
   SAVE_MODE="${SAVE_MODE:-git}" \
   INCREMENTAL_MODAL="${INCREMENTAL_MODAL:-1}" REMOTE_DIR="${REMOTE_DIR:-lora_pilot}" \
-  NUM_GPUS="${NUM_GPUS:-}" \
+  NUM_GPUS="${NUM_GPUS:-}" NPROC="${NPROC:-}" \
   bash "$RUNNER"
 
 # --------------------------------------------------------------------------- #

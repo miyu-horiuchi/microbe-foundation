@@ -14,8 +14,17 @@
 # Knobs (env): GPU_KIND (set a multi-GPU type e.g. gpu_8x_a100_sxm4 / gpu_2x_a100
 # to parallelise), SSH_KEY_NAME, REGION, BRANCH, plus any run_full.sh knob
 # (EPOCHS, MAX_GENOMES, MODEL, MAX_PROTEINS, MODES, SEEDS, PARALLEL, NUM_GPUS,
-# ENC_MICROBATCH, REMOTE_DIR) forwarded to the box. E.g. to relaunch ONLY the
-# LoRA arm on a single H100 with the memory fix:
+# NPROC/GPUS_PER_NODE, ENC_MICROBATCH, REMOTE_DIR) forwarded to the box.
+#
+# Two multi-GPU strategies (pick one):
+#   NPROC=auto|<N>   DATA-PARALLEL (DDP): shard each batch of the slow LoRA arm
+#                    across N GPUs via torchrun -> ~Nx faster on ONE (mode,seed).
+#                    Use this on a gpu_8x box to make a single LoRA run fast.
+#   PARALLEL=1       across-GPU job fan-out: pin each (mode,seed) to its own GPU.
+# E.g. 8-GPU DDP for the LoRA arm:
+#   GPU_KIND=gpu_8x_a100_sxm4 MODES="frozen lora" SEEDS=0 NPROC=8 \
+#     bash scripts/lambda_full_launch.sh
+# Or relaunch ONLY the LoRA arm on a single H100 with the memory fix:
 #   GPU_KIND=gpu_1x_h100_sxm5 MODES=lora bash scripts/lambda_full_launch.sh
 set -euo pipefail
 
@@ -55,6 +64,7 @@ fi
 # token never lands on the logged tmux command line.)
 FWD=""
 for k in MODEL MAX_GENOMES EPOCHS MAX_PROTEINS MODES SEEDS PARALLEL NUM_GPUS \
+         NPROC GPUS_PER_NODE \
          ENC_MICROBATCH REMOTE_DIR AUTO_TERMINATE INCREMENTAL_MODAL; do
   v="${!k:-}"; [ -n "$v" ] && FWD="$FWD $k=$v"
 done

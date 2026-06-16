@@ -44,9 +44,38 @@ EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights}"
 OUTDIR="${OUTDIR:-runs/lora}"
 S3_DEST="${S3_DEST:-}"   # e.g. s3://microbe-foundation-esm2-perprotein/lora_results/
 
+# --------------------------------------------------------------------------- #
+# Multi-GPU DATA PARALLELISM (DDP) for ONE job -- shard each batch across N GPUs
+# with torchrun (one process per GPU). This is the lever that makes the slow
+# LoRA arm ~Nx faster: finetune_lora.py auto-detects torchrun's RANK/WORLD_SIZE,
+# wraps the model in DistributedDataParallel, shards genomes with a
+# DistributedSampler, and all-reduces the loss + all-gathers the val/test metrics
+# so the reported numbers equal the single-GPU result within fp noise.
+#
+# NPROC (a.k.a. GPUS_PER_NODE) selects the fan-out for the LoRA/full arms:
+#   unset / "" / 1  single-process plain `python3` (EXISTING behaviour, unchanged)
+#   auto            all visible GPUs (nvidia-smi -L), else 1
+#   <N>             exactly N processes/GPUs
+# The FROZEN arm intentionally stays SINGLE-GPU: it already runs the no_grad fast
+# path (~2x faster, no encoder backward) and is not the wall-clock bottleneck, so
+# DDP would add sync overhead for ~no benefit. Only frozen is exempt; lora/full
+# shard. Frozen and a DDP lora arm run sequentially here, each using the GPUs it
+# needs (frozen: 1; lora: all NPROC).
+NPROC="${NPROC:-${GPUS_PER_NODE:-}}"
+_detect_gpus() {
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    local n; n="$(nvidia-smi -L 2>/dev/null | wc -l | tr -d ' ')"; echo "${n:-1}"
+  else echo 1; fi
+}
+if [[ "$NPROC" == "auto" ]]; then NPROC="$(_detect_gpus)"; fi
+NPROC="${NPROC:-1}"; [[ "$NPROC" =~ ^[0-9]+$ ]] || NPROC=1
+
 mkdir -p "$OUTDIR"
 echo "model=$MODEL split=$SPLIT pooling=$POOLING modes=[$MODES] seeds=[$SEEDS]"
 echo "proteins=$PROTEINS epochs=$EPOCHS batch=$BATCH max_proteins=$MAX_PROTEINS enc_microbatch=$ENC_MICROBATCH lora_r=$LORA_R"
+if [[ "$NPROC" -gt 1 ]]; then
+  echo "DDP: lora/full arms shard each batch across nproc_per_node=$NPROC GPUs (torchrun); frozen stays single-GPU"
+fi
 
 # Incremental durable upload: on a long multi-hour run a watchdog/crash can kill
 # the box mid-experiment. Upload each mode's JSON to the Modal volume the instant
@@ -66,8 +95,21 @@ for mode in $MODES; do
   for seed in $SEEDS; do
     out="$OUTDIR/${mode}_${SPLIT}_s${seed}.json"
     if [[ -f "$out" ]]; then echo "[skip] $out exists"; continue; fi
-    echo "=== mode=$mode seed=$seed -> $out ==="
-    python3 finetune_lora.py \
+    # DDP only for the trainable-encoder arms; frozen stays single-process.
+    if [[ "$mode" != "frozen" && "$NPROC" -gt 1 ]]; then
+      # Static single-node rendezvous pinned to IPv4 loopback. Avoids torchrun's
+      # c10d/--standalone FQDN lookup (which can stall on hosts whose hostname
+      # doesn't resolve) and needs no network. A fresh high random port per job
+      # keeps sequential jobs from colliding on a lingering socket.
+      DDP_PORT="$(( 20000 + RANDOM % 20000 ))"
+      LAUNCH=(torchrun --nnodes=1 --nproc_per_node="$NPROC"
+              --master_addr=127.0.0.1 --master_port="$DDP_PORT")
+      echo "=== mode=$mode seed=$seed -> $out  [DDP nproc_per_node=$NPROC port=$DDP_PORT] ==="
+    else
+      LAUNCH=(python3)
+      echo "=== mode=$mode seed=$seed -> $out ==="
+    fi
+    "${LAUNCH[@]}" finetune_lora.py \
       --proteins-dir "$PROTEINS" --model-name "$MODEL" --mode "$mode" \
       --split-level "$SPLIT" --pooling "$POOLING" \
       --lora-r "$LORA_R" --lora-alpha "$LORA_ALPHA" \

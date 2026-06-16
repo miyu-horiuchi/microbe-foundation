@@ -769,8 +769,22 @@ def run_eval(model, loader, specs, device, forward_fn=None) -> dict[str, dict[st
                 b["y"].append(y.detach().cpu())
                 b["m"].append(m.detach().cpu())
 
+    return metrics_from_buffers(buf, specs)
+
+
+def metrics_from_buffers(buf: dict, specs) -> dict[str, dict[str, float]]:
+    """Turn per-head accumulated (pred, y, mask) buffers into the metric dict.
+
+    `buf` maps head_name -> {"pred": [tensor, ...], "y": [...], "m": [...]} (the
+    exact structure run_eval accumulates). Factored out of run_eval so that a
+    distributed evaluator can all-gather every rank's buffers and call this on
+    the merged set -- guaranteeing the metric MATH is byte-identical to the
+    single-process path (just over the union of all shards).
+    """
     out: dict[str, dict[str, float]] = {}
     for name, b in buf.items():
+        if not b["pred"]:
+            continue
         h = specs[name]["head_type"]
         pred = torch.cat(b["pred"], dim=0)
         y = torch.cat(b["y"], dim=0)

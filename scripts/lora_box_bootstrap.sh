@@ -106,12 +106,28 @@ echo "=== [3/5] run scoped LoRA pilot ==="
 # NOTE: 150M x 15k-genomes x 5 epochs is HOURS/epoch on one A100 -- too heavy to
 # finish inside the watchdog window. For a fast frozen-vs-LoRA signal use e.g.
 # MODEL=facebook/esm2_t12_35M_UR50D MAX_GENOMES=2000 EPOCHS=3 MAX_PROTEINS=96.
+#
+# Runner selection: on a multi-GPU box the (mode, seed) jobs are independent, so
+# fan them out one-per-GPU with lora_runs_parallel.sh -- ~Nx faster wall-clock for
+# N GPUs. Opt in with PARALLEL=1, or auto-detect when the box has >1 GPU. Default
+# (single GPU / PARALLEL unset) keeps the sequential lora_runs.sh behaviour.
+GPU_COUNT=1
+if command -v nvidia-smi >/dev/null 2>&1; then
+  GPU_COUNT="$(nvidia-smi -L 2>/dev/null | wc -l | tr -d ' ')"
+  GPU_COUNT="${GPU_COUNT:-1}"
+fi
+RUNNER="scripts/lora_runs.sh"
+if [ "${PARALLEL:-0}" = "1" ] || [ "${GPU_COUNT:-1}" -gt 1 ] 2>/dev/null; then
+  RUNNER="scripts/lora_runs_parallel.sh"
+  echo "  parallel runner selected (PARALLEL=${PARALLEL:-0}, gpus=$GPU_COUNT)"
+fi
 MODES="${MODES:-frozen lora}" SEEDS="${SEEDS:-0}" EPOCHS="${EPOCHS:-5}" \
   MODEL="${MODEL:-facebook/esm2_t30_150M_UR50D}" \
   MAX_PROTEINS="${MAX_PROTEINS:-128}" PROTEINS="${PROTEINS:-data/esm2_proteins}" \
   EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights --max-genomes ${MAX_GENOMES:-15000}}" \
   INCREMENTAL_MODAL="${INCREMENTAL_MODAL:-1}" REMOTE_DIR="${REMOTE_DIR:-lora_pilot}" \
-  bash scripts/lora_runs.sh
+  NUM_GPUS="${NUM_GPUS:-}" \
+  bash "$RUNNER"
 
 echo "=== [4/5] save results to durable storage (Modal volume) ==="
 SAVE_OK=0

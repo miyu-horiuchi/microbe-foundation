@@ -11,8 +11,10 @@
 #   ssh-add ~/.ssh/id_ed25519        # cache passphrase once (optional but nice)
 #   bash scripts/lambda_full_launch.sh
 #
-# Knobs (env): GPU_KIND, SSH_KEY_NAME, REGION, BRANCH, plus any run_full.sh knob
-# (EPOCHS, MAX_GENOMES, MODEL, MAX_PROTEINS) forwarded to the box.
+# Knobs (env): GPU_KIND (set a multi-GPU type e.g. gpu_8x_a100_sxm4 / gpu_2x_a100
+# to parallelise), SSH_KEY_NAME, REGION, BRANCH, plus any run_full.sh knob
+# (EPOCHS, MAX_GENOMES, MODEL, MAX_PROTEINS, MODES, SEEDS, PARALLEL, NUM_GPUS)
+# forwarded to the box.
 set -euo pipefail
 
 API="https://cloud.lambdalabs.com/api/v1"
@@ -24,8 +26,10 @@ BRANCH="${BRANCH:-feat/set-transformer-tier1}"
 REPO_URL="${REPO_URL:-https://github.com/miyu-horiuchi/microbe-foundation}"
 MODAL_TOML="${MODAL_TOML:-$HOME/.modal.toml}"
 # Optional run knobs forwarded to run_full.sh on the box (empty = its defaults).
+# PARALLEL/NUM_GPUS make a multi-GPU box (GPU_KIND=gpu_8x_a100_sxm4 etc.) actually
+# fan the (mode, seed) jobs out one-per-GPU instead of running them sequentially.
 FWD=""
-for k in MODEL MAX_GENOMES EPOCHS MAX_PROTEINS MODES SEEDS; do
+for k in MODEL MAX_GENOMES EPOCHS MAX_PROTEINS MODES SEEDS PARALLEL NUM_GPUS; do
   v="${!k:-}"; [ -n "$v" ] && FWD="$FWD $k=$v"
 done
 

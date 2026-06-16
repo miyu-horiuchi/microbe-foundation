@@ -29,10 +29,17 @@ export SEEDS="${SEEDS:-0}"
 export AUTO_TERMINATE="${AUTO_TERMINATE:-1}"
 export INCREMENTAL_MODAL="${INCREMENTAL_MODAL:-1}"
 export REMOTE_DIR="${REMOTE_DIR:-lora_full}"
+# Across-GPU parallelism (Option A): set PARALLEL=1 to fan the (mode, seed) jobs
+# out one-per-GPU on a multi-GPU box. Bootstrap also auto-enables it when >1 GPU
+# is detected. NUM_GPUS overrides the auto-detected fan-out width. Both passed
+# through to the box; unset/empty = single-GPU sequential default.
+export PARALLEL="${PARALLEL:-}"
+export NUM_GPUS="${NUM_GPUS:-}"
 
 echo "=== run_full.sh ==="
 echo "  model=$MODEL genomes=$MAX_GENOMES epochs=$EPOCHS max_proteins=$MAX_PROTEINS"
 echo "  modes=[$MODES] seeds=[$SEEDS] auto_terminate=$AUTO_TERMINATE remote_dir=$REMOTE_DIR"
+echo "  parallel=${PARALLEL:-<off>} num_gpus=${NUM_GPUS:-<auto>}"
 echo "  instance_id=${INSTANCE_ID:-<unset>} lambda_key=$([ -n "${LAMBDA_API_KEY:-}" ] && echo set || echo UNSET)"
 
 exec bash scripts/lora_box_bootstrap.sh

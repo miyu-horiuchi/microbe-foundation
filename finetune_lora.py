@@ -41,6 +41,7 @@ Real run (GPU box, after syncing raw protein sequences + `pip install peft`):
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gzip
 import json
 import sys
@@ -163,10 +164,16 @@ class Esm2Encoder(nn.Module):
                 "venv so transformers/peft are isolated. Original error: "
                 f"{e!r}") from e
 
+        self.mode = mode
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         base = EsmModel.from_pretrained(model_name)
         self.out_dim = base.config.hidden_size
-        if grad_checkpoint:
+        # Gradient checkpointing trades compute for memory by recomputing the
+        # forward during backward. In `frozen` mode no gradients flow through the
+        # encoder, so checkpointing is pure waste (it forces a useless second
+        # forward pass -- the source of the "None of the inputs have
+        # requires_grad" warning). Only enable it when the encoder is trainable.
+        if grad_checkpoint and mode != "frozen":
             base.gradient_checkpointing_enable()
 
         if mode == "frozen":
@@ -192,9 +199,17 @@ class Esm2Encoder(nn.Module):
         enc = self.tokenizer(seqs, return_tensors="pt", padding=True,
                              truncation=True, max_length=ESM2_MAX_LEN)
         enc = {k: v.to(device) for k, v in enc.items()}
-        out = self.encoder(**enc).last_hidden_state          # [n, L, D]
-        am = enc["attention_mask"].unsqueeze(-1).to(out.dtype)
-        return (out * am).sum(1) / am.sum(1).clamp(min=1)     # [n, D]
+        # Frozen encoder: its weights never change, so the per-protein embeddings
+        # carry no gradient. Encode under no_grad to skip building (and, with
+        # checkpointing, recomputing) the encoder graph. This is numerically
+        # identical to the autograd path -- the trainable pooler/heads downstream
+        # still get full gradients from the encoder OUTPUT -- but ~2x faster and
+        # far lighter on memory. LoRA/full keep the normal autograd path.
+        ctx = torch.no_grad() if self.mode == "frozen" else contextlib.nullcontext()
+        with ctx:
+            out = self.encoder(**enc).last_hidden_state      # [n, L, D]
+            am = enc["attention_mask"].unsqueeze(-1).to(out.dtype)
+            return (out * am).sum(1) / am.sum(1).clamp(min=1)  # [n, D]
 
 
 # --------------------------------------------------------------------------- #

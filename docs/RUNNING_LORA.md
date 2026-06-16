@@ -37,42 +37,55 @@ python3 finetune_lora.py --model-name mock --mode lora --smoke \
 
 ## 0. Scoped pilot, end to end (run from YOUR laptop)
 
-A sandboxed agent cannot reach Lambda/SSH/Modal/S3 (only GitHub). Run these on a
-machine with network access; the loop returns results to the agent via GitHub.
+`scripts/lora_box_bootstrap.sh` is a single entrypoint that does everything on the
+box: creates an **isolated venv** (so system/conda packages can't break the
+`EsmModel` import -- the bug that cost us a run), runs a **fail-fast preflight**
+(torch<->numpy interop + CUDA + `from transformers import EsmModel`) BEFORE any
+data download, then syncs raw sequences from Modal, runs the pilot, saves results
+to the Modal volume, and (optionally) self-terminates the instance.
 
 ```bash
 # --- on your laptop ---
-export LAMBDA_API_KEY=secret_...                      # your Lambda key
-GPU_KIND=gpu_1x_a100 bash scripts/lambda_launch.sh launch   # prints instance id + ip
-IP=<ip-from-output>
+# 0) Mint a FRESH Lambda API key first (dashboard -> Settings -> API Keys).
+#    The old key is dead (403) -- a stale key silently breaks auto-terminate.
+export LAMBDA_API_KEY=secret_...NEW...
 
-# ship Modal creds so the box can pull raw sequences
+# 1) Launch (note the printed instance id + ip)
+GPU_KIND=gpu_1x_a100_sxm4 bash scripts/lambda_launch.sh launch
+export IP=<ip-from-output>
+export IID=<instance-id-from-output>
+
+# 2) Ship Modal creds so the box can pull raw protein sequences
 scp ~/.modal.toml ubuntu@$IP:~/.modal.toml
 
-ssh ubuntu@$IP <<'REMOTE'
-set -e
-git clone https://github.com/miyu-horiuchi/microbe-foundation && cd microbe-foundation
-git checkout feat/set-transformer-tier1                 # has finetune_lora.py
-bash scripts/lambda_install.sh
-pip install -r requirements.txt                          # pulls peft + accelerate
-pip install modal && mkdir -p data/esm2_proteins
-modal volume get microbe-esm2-perprotein proteins data/esm2_proteins/   # raw AA seqs
-# scoped pilot: 1 seed, frozen vs lora, 5 epochs, 15k-genome train cap, 150M
-MODES="frozen lora" SEEDS="0" EPOCHS=5 MAX_PROTEINS=128 \
-  PROTEINS=data/esm2_proteins \
-  EXTRA="--grad-checkpoint --balanced-families --class-weights --max-genomes 15000" \
-  bash scripts/lora_runs.sh
-# return results to the agent via GitHub
-git add runs/lora/*.json && git -c user.email=run@box -c user.name=box \
-  commit -m "pilot LoRA results (frozen vs lora, family, seed 0)" && git push origin HEAD
-REMOTE
+# 3) Clone the repo on the box (first time only)
+ssh ubuntu@$IP 'git clone https://github.com/miyu-horiuchi/microbe-foundation \
+  && cd microbe-foundation && git checkout feat/set-transformer-tier1'
 
-# tear down to stop billing
-bash scripts/lambda_launch.sh terminate <instance-id>
+# 4) Run the pilot in a detached tmux. The bootstrap does venv+preflight+sync+run
+#    +save+auto-terminate. Watch for "PREFLIGHT OK" in the first ~minute.
+ssh ubuntu@$IP "cd microbe-foundation && git pull --ff-only && \
+  tmux new-session -d -s pilot \
+  'AUTO_TERMINATE=1 INSTANCE_ID=$IID LAMBDA_API_KEY=$LAMBDA_API_KEY \
+   bash scripts/lora_box_bootstrap.sh 2>&1 | tee ~/pilot.log'"
+
+# 5) Arm the hard watchdog as a cost backstop (force-terminate after 6h no matter what)
+ssh ubuntu@$IP "INSTANCE_ID=$IID LAMBDA_API_KEY=$LAMBDA_API_KEY \
+  nohup bash microbe-foundation/scripts/lambda_watchdog.sh 6 >/tmp/watchdog.log 2>&1 &"
+
+# 6) Monitor (preflight first, then per-epoch training)
+ssh ubuntu@$IP 'tail -f ~/pilot.log'
 ```
 
-Then tell the agent "results pushed" -- it pulls `runs/lora/*.json`, builds Table 31
-(`paper/lora_finetune_compare.py`), and writes the manuscript section.
+When done, the box saves `runs/lora/` (JSONs + Table 31) to the Modal volume and
+terminates itself. Pull results to your laptop:
+
+```bash
+modal volume get microbe-esm2-perprotein lora_pilot ./runs/lora_pilot --force
+```
+
+Then the agent reads `runs/lora_pilot/*.json`, finalizes Table 31, and writes the
+manuscript section.
 
 ## 1. Provision a GPU box
 

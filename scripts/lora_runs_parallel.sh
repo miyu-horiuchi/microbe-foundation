@@ -68,10 +68,13 @@ echo "PARALLEL across num_gpus=$NUM_GPUS (one job per GPU, logs -> $LOGDIR)"
 # Incremental durable upload -- identical to lora_runs.sh. On a long multi-hour
 # run a watchdog/crash can kill the box mid-experiment; upload the whole OUTDIR to
 # the Modal volume the instant a job's JSON lands so a completed result is never
-# lost. Best-effort + gated on INCREMENTAL_MODAL=1 and a REMOTE_DIR target. Called
-# from inside each background job so it fires when (and only when) that job exits.
+# lost. ONLY runs under the legacy Modal path: gated on SAVE_MODE=modal (the
+# default SAVE_MODE=git/none never touches Modal here), plus INCREMENTAL_MODAL=1
+# and a REMOTE_DIR target. Called from inside each background job so it fires when
+# (and only when) that job exits.
 incremental_upload() {
-  [[ "${INCREMENTAL_MODAL:-0}" == "1" && -n "${REMOTE_DIR:-}" ]] || return 0
+  [[ "${SAVE_MODE:-git}" == "modal" ]] || return 0
+  [[ "${INCREMENTAL_MODAL:-1}" == "1" && -n "${REMOTE_DIR:-}" ]] || return 0
   python3 -m modal volume put microbe-esm2-perprotein "$OUTDIR" "$REMOTE_DIR" --force \
     >/dev/null 2>&1 && echo "  [modal] synced $OUTDIR -> $REMOTE_DIR" \
     || echo "  [modal] WARNING: incremental upload failed (continuing)"

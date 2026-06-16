@@ -133,23 +133,83 @@ MODES="${MODES:-frozen lora}" SEEDS="${SEEDS:-0}" EPOCHS="${EPOCHS:-5}" \
   MAX_PROTEINS="${MAX_PROTEINS:-128}" PROTEINS="${PROTEINS:-data/esm2_proteins}" \
   ENC_MICROBATCH="${ENC_MICROBATCH:-8}" \
   EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights --max-genomes ${MAX_GENOMES:-15000}}" \
+  SAVE_MODE="${SAVE_MODE:-git}" \
   INCREMENTAL_MODAL="${INCREMENTAL_MODAL:-1}" REMOTE_DIR="${REMOTE_DIR:-lora_pilot}" \
   NUM_GPUS="${NUM_GPUS:-}" \
   bash "$RUNNER"
 
-echo "=== [4/5] save results to durable storage (Modal volume) ==="
+# --------------------------------------------------------------------------- #
+# [4/5] SAVE results durably -- NO Modal required.
+#
+# SAVE_MODE selects the durable sink (default: git):
+#   git    commit runs/lora (JSONs + logs + Table 31) to the current branch and
+#          `git push` to GitHub. Tiny files, lands regardless of the box dying.
+#          Requires a push credential on the box (GH_TOKEN, provisioned by
+#          lambda_full_launch.sh). If none is present OR the push fails, the
+#          results stay committed locally and we DO NOT terminate -- pull via scp.
+#   none   write results to runs/lora only; never push, never terminate. Pull via
+#          scp from your laptop (instructions printed below). Watchdog caps cost.
+#   modal  legacy: `modal volume put` to microbe-esm2-perprotein (needs a usable
+#          Modal subscription). Kept for back-compat; no longer the default.
+#
+# save_results() returns 0 ONLY when results are durably OFF the box (git push or
+# modal put succeeded) -- and auto-terminate is gated on that, so a box never
+# self-destructs before the results are safe.
+# --------------------------------------------------------------------------- #
+echo "=== [4/5] save results (SAVE_MODE=${SAVE_MODE:-git}) ==="
+
+git_save_and_push() {
+  command -v git >/dev/null 2>&1 || { echo "  [git] git not found on box"; return 1; }
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "  [git] not a git repo"; return 1; }
+  # The box clone has no committer identity; set a throwaway one.
+  git config user.email >/dev/null 2>&1 || git config user.email "lambda-box@microbe.local"
+  git config user.name  >/dev/null 2>&1 || git config user.name  "lambda-box"
+  # runs/ is gitignored -> force-add the (small) result artifacts only.
+  git add -f runs/lora >/dev/null 2>&1 || true
+  if git diff --cached --quiet; then
+    echo "  [git] nothing new to commit (results already committed)"
+  else
+    git commit -q -m "results: lora run $(date -u +%FT%TZ) modes=[${MODES:-}] seeds=[${SEEDS:-}]" \
+      || { echo "  [git] commit failed"; return 1; }
+    echo "  [git] committed runs/lora to $(git rev-parse --abbrev-ref HEAD)"
+  fi
+  # Push needs a token. lambda_full_launch.sh writes GH_TOKEN into ~/run_env.sh
+  # when one is available locally; without it we keep the commit on the box only.
+  if [ -z "${GH_TOKEN:-}" ]; then
+    echo "  [git] no GH_TOKEN on box -> committed locally only; pull via scp (below). NOT terminating."
+    return 1
+  fi
+  local slug="${GH_REPO_SLUG:-miyu-horiuchi/microbe-foundation}"
+  local branch; branch="$(git rev-parse --abbrev-ref HEAD)"
+  # Token only ever lives in this ephemeral push URL; output suppressed so it is
+  # never echoed into the log.
+  if git push "https://x-access-token:${GH_TOKEN}@github.com/${slug}.git" "HEAD:${branch}" >/dev/null 2>&1; then
+    echo "  [git] pushed runs/lora -> github.com/${slug} ($branch)"
+    return 0
+  fi
+  echo "  [git] WARNING: push failed -- results are committed locally; pull via scp. NOT terminating."
+  return 1
+}
+
 SAVE_OK=0
 if ls runs/lora/*.json >/dev/null 2>&1; then
   cp -f "${PILOT_LOG:-$HOME/pilot.log}" runs/lora/pilot.log 2>/dev/null || true
   # Table 31 (best-effort) so the artifact travels with the JSONs.
   python3 paper/lora_finetune_compare.py --runs-dir runs/lora || true
   cp -f paper/tables/31_lora_finetune.md runs/lora/ 2>/dev/null || true
-  if python3 -m modal volume put microbe-esm2-perprotein runs/lora "${REMOTE_DIR:-lora_pilot}" --force; then
-    SAVE_OK=1
-    echo "  saved runs/lora -> modal volume microbe-esm2-perprotein:/${REMOTE_DIR:-lora_pilot}"
-  else
-    echo "  WARNING: modal volume put failed -- NOT terminating so you can recover."
-  fi
+  case "${SAVE_MODE:-git}" in
+    git)
+      if git_save_and_push; then SAVE_OK=1; fi ;;
+    modal)
+      if python3 -m modal volume put microbe-esm2-perprotein runs/lora "${REMOTE_DIR:-lora_pilot}" --force; then
+        SAVE_OK=1
+        echo "  saved runs/lora -> modal volume microbe-esm2-perprotein:/${REMOTE_DIR:-lora_pilot}"
+      else
+        echo "  WARNING: modal volume put failed -- NOT terminating so you can recover."
+      fi ;;
+    none|*)
+      echo "  SAVE_MODE=none: results left in runs/lora -- pull via scp (below). NOT terminating." ;;
+  esac
 else
   echo "  no result JSONs -- NOT terminating; inspect the log above."
 fi
@@ -157,15 +217,21 @@ fi
 echo "=== [5/5] auto-terminate ==="
 if [ "${AUTO_TERMINATE:-0}" = "1" ] && [ "$SAVE_OK" = "1" ] \
    && [ -n "${LAMBDA_API_KEY:-}" ] && [ -n "${INSTANCE_ID:-}" ]; then
-  echo "  results saved; terminating instance $INSTANCE_ID to stop billing..."
+  echo "  results durably saved; terminating instance $INSTANCE_ID to stop billing..."
   curl -fsS -u "$LAMBDA_API_KEY:" -H "Content-Type: application/json" \
     -X POST https://cloud.lambdalabs.com/api/v1/instance-operations/terminate \
     -d "{\"instance_ids\":[\"$INSTANCE_ID\"]}" && echo "  terminate request sent." \
     || echo "  WARNING: terminate API call failed -- terminate manually."
 else
   echo "  auto-terminate skipped (AUTO_TERMINATE=${AUTO_TERMINATE:-0}, save_ok=$SAVE_OK)."
+  echo "  box is STILL UP -- a watchdog (if armed) will cap cost; results are in runs/lora."
 fi
 
 echo
-echo "=== DONE. To pull results onto your laptop (then the agent reads them): ==="
-echo "  modal volume get microbe-esm2-perprotein ${REMOTE_DIR:-lora_pilot} ./runs/lora_pilot --force"
+echo "=== DONE. Pull results onto your laptop (then the agent reads them): ==="
+case "${SAVE_MODE:-git}" in
+  modal) echo "  modal volume get microbe-esm2-perprotein ${REMOTE_DIR:-lora_pilot} ./runs/lora_pilot --force" ;;
+  git)   echo "  # if pushed: git fetch && git checkout ${BRANCH:-feat/set-transformer-tier1} && git pull" ;;
+esac
+echo "  # always works (no Modal, no token): scp the JSONs straight off the box:"
+echo "  #   scp -r ubuntu@<BOX_IP>:microbe-foundation/runs/lora ./runs/lora_from_box"

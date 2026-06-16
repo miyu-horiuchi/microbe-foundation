@@ -51,9 +51,12 @@ echo "proteins=$PROTEINS epochs=$EPOCHS batch=$BATCH max_proteins=$MAX_PROTEINS 
 # Incremental durable upload: on a long multi-hour run a watchdog/crash can kill
 # the box mid-experiment. Upload each mode's JSON to the Modal volume the instant
 # it's written so a completed `frozen` result is never lost waiting for `lora`.
-# Best-effort + gated on INCREMENTAL_MODAL=1 and a REMOTE_DIR target.
+# ONLY runs under the legacy Modal path: gated on SAVE_MODE=modal (the default
+# SAVE_MODE=git/none never touches Modal here), plus INCREMENTAL_MODAL=1 and a
+# REMOTE_DIR target. Best-effort.
 incremental_upload() {
-  [[ "${INCREMENTAL_MODAL:-0}" == "1" && -n "${REMOTE_DIR:-}" ]] || return 0
+  [[ "${SAVE_MODE:-git}" == "modal" ]] || return 0
+  [[ "${INCREMENTAL_MODAL:-1}" == "1" && -n "${REMOTE_DIR:-}" ]] || return 0
   python3 -m modal volume put microbe-esm2-perprotein "$OUTDIR" "$REMOTE_DIR" --force \
     >/dev/null 2>&1 && echo "  [modal] synced $OUTDIR -> $REMOTE_DIR" \
     || echo "  [modal] WARNING: incremental upload failed (continuing)"

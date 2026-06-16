@@ -98,9 +98,18 @@ fi
 echo "  genomes with sequences: $(find data/esm2_proteins -name '*.txt.gz' | wc -l)"
 
 echo "=== [3/5] run scoped LoRA pilot ==="
+# Knobs (all space-free so they're easy to pass over ssh/tmux):
+#   MODEL         ESM-2 checkpoint (smaller = much faster pilot)
+#   EPOCHS        epochs per mode
+#   MAX_PROTEINS  proteins/genome encoded (memory + speed)
+#   MAX_GENOMES   genomes/split cap (the dominant cost lever)
+# NOTE: 150M x 15k-genomes x 5 epochs is HOURS/epoch on one A100 -- too heavy to
+# finish inside the watchdog window. For a fast frozen-vs-LoRA signal use e.g.
+# MODEL=facebook/esm2_t12_35M_UR50D MAX_GENOMES=2000 EPOCHS=3 MAX_PROTEINS=96.
 MODES="${MODES:-frozen lora}" SEEDS="${SEEDS:-0}" EPOCHS="${EPOCHS:-5}" \
+  MODEL="${MODEL:-facebook/esm2_t30_150M_UR50D}" \
   MAX_PROTEINS="${MAX_PROTEINS:-128}" PROTEINS="${PROTEINS:-data/esm2_proteins}" \
-  EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights --max-genomes 15000}" \
+  EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights --max-genomes ${MAX_GENOMES:-15000}}" \
   bash scripts/lora_runs.sh
 
 echo "=== [4/5] save results to durable storage (Modal volume) ==="

@@ -24,6 +24,11 @@
 #   MODES="frozen lora" SEEDS="0 1 2" bash scripts/lora_runs_parallel.sh
 set -euo pipefail
 
+# Cap CUDA allocator fragmentation (see lora_runs.sh). Set once here; it is
+# inherited by every per-GPU job below. Harmless for frozen.
+: "${PYTORCH_CUDA_ALLOC_CONF:=expandable_segments:True}"
+export PYTORCH_CUDA_ALLOC_CONF
+
 PROTEINS="${PROTEINS:-data/esm2_proteins}"
 MODEL="${MODEL:-facebook/esm2_t30_150M_UR50D}"
 POOLING="${POOLING:-set_transformer}"
@@ -33,6 +38,9 @@ SEEDS="${SEEDS:-0 1 2}"
 EPOCHS="${EPOCHS:-15}"
 BATCH="${BATCH:-4}"
 MAX_PROTEINS="${MAX_PROTEINS:-256}"
+# Proteins per ESM-2 forward -- caps peak encoder activation memory without
+# changing results (see lora_runs.sh). 8 keeps LoRA inside an 80GB/40GB GPU.
+ENC_MICROBATCH="${ENC_MICROBATCH:-8}"
 LORA_R="${LORA_R:-16}"
 LORA_ALPHA="${LORA_ALPHA:-32}"
 LR="${LR:-5e-4}"
@@ -54,7 +62,7 @@ fi
 
 mkdir -p "$OUTDIR" "$LOGDIR"
 echo "model=$MODEL split=$SPLIT pooling=$POOLING modes=[$MODES] seeds=[$SEEDS]"
-echo "proteins=$PROTEINS epochs=$EPOCHS batch=$BATCH max_proteins=$MAX_PROTEINS lora_r=$LORA_R"
+echo "proteins=$PROTEINS epochs=$EPOCHS batch=$BATCH max_proteins=$MAX_PROTEINS enc_microbatch=$ENC_MICROBATCH lora_r=$LORA_R"
 echo "PARALLEL across num_gpus=$NUM_GPUS (one job per GPU, logs -> $LOGDIR)"
 
 # Incremental durable upload -- identical to lora_runs.sh. On a long multi-hour
@@ -82,6 +90,7 @@ run_job() {
     --split-level "$SPLIT" --pooling "$POOLING" \
     --lora-r "$LORA_R" --lora-alpha "$LORA_ALPHA" \
     --max-proteins "$MAX_PROTEINS" --batch "$BATCH" --epochs "$EPOCHS" \
+    --enc-microbatch "$ENC_MICROBATCH" \
     --lr "$LR" --seed "$seed" --run-name "${mode}_${SPLIT}_s${seed}" \
     --save-metrics "$out" $EXTRA >"$log" 2>&1 || rc=$?
   if [[ "$rc" == "0" ]]; then

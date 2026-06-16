@@ -334,8 +334,13 @@ def main() -> None:
     ap.add_argument("--target-modules", default="query,key,value",
                     help="comma-separated ESM-2 Linear names for LoRA adapters.")
     ap.add_argument("--max-proteins", type=int, default=256)
-    ap.add_argument("--enc-microbatch", type=int, default=128,
-                    help="proteins encoded per ESM-2 forward (memory bound).")
+    ap.add_argument("--enc-microbatch", type=int, default=8,
+                    help="proteins encoded per ESM-2 forward (caps peak encoder "
+                         "activation memory). Lowering is numerically identical "
+                         "(same grads/results) -- it only changes how many proteins "
+                         "share one forward. Default 8 keeps a full-backprop LoRA "
+                         "run (150M + grad-checkpoint) inside an 80GB (or 40GB) GPU; "
+                         "the old default of 128 OOM'd on an 80GB H100.")
     ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--epochs", type=int, default=15)
     ap.add_argument("--lr", type=float, default=5e-4)

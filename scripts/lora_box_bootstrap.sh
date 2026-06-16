@@ -16,6 +16,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Cap CUDA allocator fragmentation for the training processes (the OOM message
+# itself recommends expandable_segments). Exported here so it reaches the runner
+# and every finetune_lora.py child even when the bootstrap is invoked directly.
+# Harmless for the frozen job.
+: "${PYTORCH_CUDA_ALLOC_CONF:=expandable_segments:True}"
+export PYTORCH_CUDA_ALLOC_CONF
+
 # --------------------------------------------------------------------------- #
 # [1/5] ISOLATED venv install.
 #
@@ -124,6 +131,7 @@ fi
 MODES="${MODES:-frozen lora}" SEEDS="${SEEDS:-0}" EPOCHS="${EPOCHS:-5}" \
   MODEL="${MODEL:-facebook/esm2_t30_150M_UR50D}" \
   MAX_PROTEINS="${MAX_PROTEINS:-128}" PROTEINS="${PROTEINS:-data/esm2_proteins}" \
+  ENC_MICROBATCH="${ENC_MICROBATCH:-8}" \
   EXTRA="${EXTRA:---grad-checkpoint --balanced-families --class-weights --max-genomes ${MAX_GENOMES:-15000}}" \
   INCREMENTAL_MODAL="${INCREMENTAL_MODAL:-1}" REMOTE_DIR="${REMOTE_DIR:-lora_pilot}" \
   NUM_GPUS="${NUM_GPUS:-}" \

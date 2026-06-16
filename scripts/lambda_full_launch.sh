@@ -13,8 +13,10 @@
 #
 # Knobs (env): GPU_KIND (set a multi-GPU type e.g. gpu_8x_a100_sxm4 / gpu_2x_a100
 # to parallelise), SSH_KEY_NAME, REGION, BRANCH, plus any run_full.sh knob
-# (EPOCHS, MAX_GENOMES, MODEL, MAX_PROTEINS, MODES, SEEDS, PARALLEL, NUM_GPUS)
-# forwarded to the box.
+# (EPOCHS, MAX_GENOMES, MODEL, MAX_PROTEINS, MODES, SEEDS, PARALLEL, NUM_GPUS,
+# ENC_MICROBATCH, REMOTE_DIR) forwarded to the box. E.g. to relaunch ONLY the
+# LoRA arm on a single H100 with the memory fix:
+#   GPU_KIND=gpu_1x_h100_sxm5 MODES=lora bash scripts/lambda_full_launch.sh
 set -euo pipefail
 
 API="https://cloud.lambdalabs.com/api/v1"
@@ -29,7 +31,8 @@ MODAL_TOML="${MODAL_TOML:-$HOME/.modal.toml}"
 # PARALLEL/NUM_GPUS make a multi-GPU box (GPU_KIND=gpu_8x_a100_sxm4 etc.) actually
 # fan the (mode, seed) jobs out one-per-GPU instead of running them sequentially.
 FWD=""
-for k in MODEL MAX_GENOMES EPOCHS MAX_PROTEINS MODES SEEDS PARALLEL NUM_GPUS; do
+for k in MODEL MAX_GENOMES EPOCHS MAX_PROTEINS MODES SEEDS PARALLEL NUM_GPUS \
+         ENC_MICROBATCH REMOTE_DIR; do
   v="${!k:-}"; [ -n "$v" ] && FWD="$FWD $k=$v"
 done
 

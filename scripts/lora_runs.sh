@@ -18,6 +18,12 @@
 #   MODEL=facebook/esm2_t33_650M_UR50D bash scripts/lora_runs.sh   # 650M
 set -euo pipefail
 
+# Cap CUDA allocator fragmentation. A full-backprop LoRA run pushes the 150M
+# encoder hard; expandable segments let freed blocks be reused instead of
+# stranded, which the OOM message itself recommends. Harmless for frozen.
+: "${PYTORCH_CUDA_ALLOC_CONF:=expandable_segments:True}"
+export PYTORCH_CUDA_ALLOC_CONF
+
 PROTEINS="${PROTEINS:-data/esm2_proteins}"
 MODEL="${MODEL:-facebook/esm2_t30_150M_UR50D}"
 POOLING="${POOLING:-set_transformer}"
@@ -27,6 +33,10 @@ SEEDS="${SEEDS:-0 1 2}"
 EPOCHS="${EPOCHS:-15}"
 BATCH="${BATCH:-4}"
 MAX_PROTEINS="${MAX_PROTEINS:-256}"
+# Proteins per ESM-2 forward. Caps peak encoder activation memory WITHOUT
+# changing the science (identical grads/results) -- the LoRA full-backprop path
+# OOM'd on an 80GB H100 at the old default of 128. 8 fits 80GB (and 40GB).
+ENC_MICROBATCH="${ENC_MICROBATCH:-8}"
 LORA_R="${LORA_R:-16}"
 LORA_ALPHA="${LORA_ALPHA:-32}"
 LR="${LR:-5e-4}"
@@ -36,7 +46,7 @@ S3_DEST="${S3_DEST:-}"   # e.g. s3://microbe-foundation-esm2-perprotein/lora_res
 
 mkdir -p "$OUTDIR"
 echo "model=$MODEL split=$SPLIT pooling=$POOLING modes=[$MODES] seeds=[$SEEDS]"
-echo "proteins=$PROTEINS epochs=$EPOCHS batch=$BATCH max_proteins=$MAX_PROTEINS lora_r=$LORA_R"
+echo "proteins=$PROTEINS epochs=$EPOCHS batch=$BATCH max_proteins=$MAX_PROTEINS enc_microbatch=$ENC_MICROBATCH lora_r=$LORA_R"
 
 # Incremental durable upload: on a long multi-hour run a watchdog/crash can kill
 # the box mid-experiment. Upload each mode's JSON to the Modal volume the instant
@@ -59,6 +69,7 @@ for mode in $MODES; do
       --split-level "$SPLIT" --pooling "$POOLING" \
       --lora-r "$LORA_R" --lora-alpha "$LORA_ALPHA" \
       --max-proteins "$MAX_PROTEINS" --batch "$BATCH" --epochs "$EPOCHS" \
+      --enc-microbatch "$ENC_MICROBATCH" \
       --lr "$LR" --seed "$seed" --run-name "${mode}_${SPLIT}_s${seed}" \
       --save-metrics "$out" $EXTRA
     incremental_upload

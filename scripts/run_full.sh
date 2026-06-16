@@ -19,11 +19,21 @@ cd "$(dirname "$0")/.."
 # Lambda creds for auto-terminate (optional -- run still works without them).
 [ -f "$HOME/run_env.sh" ] && . "$HOME/run_env.sh"
 
+# Cap CUDA allocator fragmentation for every training process spawned downstream
+# (bootstrap -> runner -> finetune_lora.py). The OOM traceback explicitly
+# recommends this; it is harmless for the frozen job.
+: "${PYTORCH_CUDA_ALLOC_CONF:=expandable_segments:True}"
+export PYTORCH_CUDA_ALLOC_CONF
+
 # Full-scale defaults (all overridable via env).
 export MODEL="${MODEL:-facebook/esm2_t30_150M_UR50D}"
 export MAX_GENOMES="${MAX_GENOMES:-15000}"
 export EPOCHS="${EPOCHS:-5}"
 export MAX_PROTEINS="${MAX_PROTEINS:-128}"
+# Proteins per ESM-2 forward. Caps peak encoder activation memory with NO change
+# to the science (identical grads/results) -- the LoRA full-backprop path OOM'd
+# on an 80GB H100 at the old default of 128. 8 fits 80GB (and 40GB). Overridable.
+export ENC_MICROBATCH="${ENC_MICROBATCH:-8}"
 export MODES="${MODES:-frozen lora}"
 export SEEDS="${SEEDS:-0}"
 export AUTO_TERMINATE="${AUTO_TERMINATE:-1}"
@@ -37,7 +47,7 @@ export PARALLEL="${PARALLEL:-}"
 export NUM_GPUS="${NUM_GPUS:-}"
 
 echo "=== run_full.sh ==="
-echo "  model=$MODEL genomes=$MAX_GENOMES epochs=$EPOCHS max_proteins=$MAX_PROTEINS"
+echo "  model=$MODEL genomes=$MAX_GENOMES epochs=$EPOCHS max_proteins=$MAX_PROTEINS enc_microbatch=$ENC_MICROBATCH"
 echo "  modes=[$MODES] seeds=[$SEEDS] auto_terminate=$AUTO_TERMINATE remote_dir=$REMOTE_DIR"
 echo "  parallel=${PARALLEL:-<off>} num_gpus=${NUM_GPUS:-<auto>}"
 echo "  instance_id=${INSTANCE_ID:-<unset>} lambda_key=$([ -n "${LAMBDA_API_KEY:-}" ] && echo set || echo UNSET)"

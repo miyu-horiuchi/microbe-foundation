@@ -38,6 +38,17 @@ mkdir -p "$OUTDIR"
 echo "model=$MODEL split=$SPLIT pooling=$POOLING modes=[$MODES] seeds=[$SEEDS]"
 echo "proteins=$PROTEINS epochs=$EPOCHS batch=$BATCH max_proteins=$MAX_PROTEINS lora_r=$LORA_R"
 
+# Incremental durable upload: on a long multi-hour run a watchdog/crash can kill
+# the box mid-experiment. Upload each mode's JSON to the Modal volume the instant
+# it's written so a completed `frozen` result is never lost waiting for `lora`.
+# Best-effort + gated on INCREMENTAL_MODAL=1 and a REMOTE_DIR target.
+incremental_upload() {
+  [[ "${INCREMENTAL_MODAL:-0}" == "1" && -n "${REMOTE_DIR:-}" ]] || return 0
+  python3 -m modal volume put microbe-esm2-perprotein "$OUTDIR" "$REMOTE_DIR" --force \
+    >/dev/null 2>&1 && echo "  [modal] synced $OUTDIR -> $REMOTE_DIR" \
+    || echo "  [modal] WARNING: incremental upload failed (continuing)"
+}
+
 for mode in $MODES; do
   for seed in $SEEDS; do
     out="$OUTDIR/${mode}_${SPLIT}_s${seed}.json"
@@ -50,6 +61,7 @@ for mode in $MODES; do
       --max-proteins "$MAX_PROTEINS" --batch "$BATCH" --epochs "$EPOCHS" \
       --lr "$LR" --seed "$seed" --run-name "${mode}_${SPLIT}_s${seed}" \
       --save-metrics "$out" $EXTRA
+    incremental_upload
   done
 done
 

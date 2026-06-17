@@ -1,0 +1,219 @@
+=== run_full.sh ===
+  model=facebook/esm2_t30_150M_UR50D genomes=15000 epochs=3 max_proteins=128 enc_microbatch=8
+  modes=[frozen] seeds=[0] auto_terminate=1 save_mode=none remote_dir=lora_full
+  parallel=<off> num_gpus=<auto> nproc(ddp)=8
+  instance_id=39ffcf267b8a4bd79e3b6724ac0433dc lambda_key=set
+=== [1/5] isolated venv install ===
+WARNING: Error parsing dependencies of flatbuffers: Invalid version: '1.12.1-git20200711.33e2d80-dfsg1-0.6'
+WARNING: Error parsing dependencies of flatbuffers: Invalid version: '1.12.1-git20200711.33e2d80-dfsg1-0.6'
+WARNING: Error parsing dependencies of flatbuffers: Invalid version: '1.12.1-git20200711.33e2d80-dfsg1-0.6'
+--- preflight: torch/numpy interop + CUDA + EsmModel import ---
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+2026-06-17 05:30:20.924260: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674220.995194    3814 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674221.016242    3814 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674221.147457    3814 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674221.147503    3814 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674221.147506    3814 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674221.147509    3814 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+  torch 2.7.0  numpy 1.26.4  cuda_available=True
+  transformers 4.57.6
+  EsmModel import OK
+PREFLIGHT OK
+=== [2/5] sync raw protein sequences from Modal volume ===
+✓ Finished downloading files to local!
+  genomes with sequences: 19278
+=== [3/5] run scoped LoRA pilot ===
+  DDP runner: ALL arms (frozen + lora/full) sharded across NPROC=8 GPU(s) via torchrun (no GPU idle)
+model=facebook/esm2_t30_150M_UR50D split=family pooling=set_transformer modes=[frozen] seeds=[0]
+proteins=data/esm2_proteins epochs=3 batch=4 max_proteins=128 enc_microbatch=8 lora_r=16
+DDP: ALL arms (frozen + lora/full) shard each batch across nproc_per_node=8 GPUs (torchrun); no GPU idle
+=== mode=frozen seed=0 -> runs/lora/frozen_family_s0.json  [DDP nproc_per_node=8 port=38513] ===
+W0617 05:31:50.508000 5680 torch/distributed/run.py:765] 
+W0617 05:31:50.508000 5680 torch/distributed/run.py:765] *****************************************
+W0617 05:31:50.508000 5680 torch/distributed/run.py:765] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0617 05:31:50.508000 5680 torch/distributed/run.py:765] *****************************************
+[ddp] world_size=8 backend=nccl device=cuda:0
+[data] split=family train=11600 val=3871 test=3807 (genomes with sequences)
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+2026-06-17 05:32:25.242903: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674345.265719    5808 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674345.273211    5808 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674345.293461    5808 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.293565    5808 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.293602    5808 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.293629    5808 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-06-17 05:32:25.443625: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674345.465979    5813 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674345.473181    5813 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674345.492943    5813 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.493043    5813 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.493121    5813 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.493149    5813 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-06-17 05:32:25.493631: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674345.517215    5815 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674345.524560    5815 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674345.544199    5815 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.544317    5815 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.544345    5815 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674345.544400    5815 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+2026-06-17 05:32:26.043557: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674346.065627    5814 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674346.072887    5814 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674346.092161    5814 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674346.092261    5814 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674346.092288    5814 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674346.092315    5814 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-06-17 05:32:26.783877: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674346.808151    5810 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674346.815897    5810 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674346.836605    5810 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674346.836714    5810 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674346.836740    5810 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674346.836768    5810 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-06-17 05:32:26.951796: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674346.973924    5812 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674346.981084    5812 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674347.000273    5812 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674347.000428    5812 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674347.000464    5812 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674347.000477    5812 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t30_150M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t30_150M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t30_150M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t30_150M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t30_150M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t30_150M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+[model] mode=frozen pooling=set_transformer trainable=5,542,053 / 153,680,894 params
+2026-06-17 05:32:33.298996: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674353.328418    5809 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674353.337698    5809 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674353.362467    5809 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674353.362507    5809 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674353.362511    5809 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674353.362515    5809 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-06-17 05:32:33.761082: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1781674353.790096    5811 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1781674353.799484    5811 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1781674353.824388    5811 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674353.824450    5811 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674353.824453    5811 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1781674353.824457    5811 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t30_150M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t30_150M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/home/ubuntu/microbe-foundation/finetune_lora.py:630: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+[lr] base=0.0005 rule=sqrt world_size=8 scale=2.828 final=0.00141 | warmup_steps=54/1089 (frac=0.05, min=50)
+/home/ubuntu/microbe-foundation/finetune_lora.py:630: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+/home/ubuntu/microbe-foundation/finetune_lora.py:630: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+/home/ubuntu/microbe-foundation/finetune_lora.py:630: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+/home/ubuntu/microbe-foundation/finetune_lora.py:630: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+/home/ubuntu/microbe-foundation/finetune_lora.py:630: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+/home/ubuntu/microbe-foundation/finetune_lora.py:630: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+/home/ubuntu/microbe-foundation/finetune_lora.py:630: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+[epoch 1/3] train_loss=1.0316 (1829s) val_avg=0.6038
+[epoch 2/3] train_loss=0.9538 (1865s) val_avg=0.6018
+[epoch 3/3] train_loss=0.8968 (1668s) val_avg=0.5993
+[test] avg_primary=0.5680
+    gram_stain               {'acc': 0.6962025165557861, 'f1': 0.27363184079601993}
+    cell_shape               {'acc': 0.8197879791259766, 'f1': 0.12871012482662966}
+    motility                 {'acc': 0.45525527000427246, 'f1': 0.5099945975148569}
+    pigmentation             {'acc': 0.7344781756401062, 'f1': 0.8466819221967964}
+    oxygen_tolerance         {'acc': 0.8544949293136597, 'f1': 0.15358987173080127}
+    catalase                 {'acc': 0.818371593952179, 'f1': 0.9001148105625718}
+    cytochrome_oxidase       {'acc': 0.6748329401016235, 'f1': 0.8058510638297872}
+    halophily                {'acc': 0.5629886984825134, 'f1': 0.23142857142857143}
+    temperature_class        {'acc': 0.9505038261413574, 'f1': 0.3345277078319173}
+    ph_class                 {'acc': 0.575042188167572, 'f1': 0.26565295702526087}
+    cultivation_medium       {'f1': 0.1102048914064052, 'f1_macro': 0.004640932194888592}
+    carbon_utilization       {'f1': 0.48655293242244085, 'f1_macro': 0.3706475794315338}
+    metabolite_production    {'f1': 0.12043979277670633, 'f1_macro': 0.6936447024345398}
+    amr_phenotype            {'f1': 0.4171672317216981, 'f1_macro': 0.4605535864830017}
+    biosafety_level          {'acc': 0.8861995935440063, 'f1': 0.469833408374606}
+    pathogenicity_human      {'acc': 0.6987447738647461, 'f1': 0.17557251908396945}
+    pathogenicity_animal     {'acc': 0.753348708152771, 'f1': 0.1523809523809524}
+    country                  {'acc': 0.06687137484550476, 'f1': 0.0030938250383424014}
+    fatty_acid_profile       {'rmse': 0.13140671177088523}
+    sporulation              {'acc': 0.746583878993988, 'f1': 0.0}
+    isolation_source         {'acc': 0.3684210479259491, 'f1': 0.06842688055740392}
+wrote runs/lora/frozen_family_s0.json
+=== building Table 31 ===
+# Table 31 -- Encoder adaptation: frozen vs LoRA vs full (the decisive lever)
+
+split=family. Per-run metric JSONs from `finetune_lora.py`, aggregated as mean +/- std over seeds. `avg_primary` is the across-head headline metric (per-head primary: acc for binary/multiclass, F1 for multilabel, RMSE for regression). The LoRA-minus-frozen delta is the encoder-adaptation lever.
+
+## Overall (avg_primary across heads)
+
+| Mode | avg_primary | seeds |
+|---|---|---:|
+| frozen | 0.5680 +/- 0.0000 | 1 |
+
+## Per-trait (primary metric, mean over seeds)
+
+| Trait | frozen | LoRA-frozen |
+|---|---|---:|
+| `amr_phenotype` | 0.417 | n/a |
+| `biosafety_level` | 0.886 | n/a |
+| `carbon_utilization` | 0.487 | n/a |
+| `catalase` | 0.818 | n/a |
+| `cell_shape` | 0.820 | n/a |
+| `country` | 0.067 | n/a |
+| `cultivation_medium` | 0.110 | n/a |
+| `cytochrome_oxidase` | 0.675 | n/a |
+| `fatty_acid_profile` | 0.131 | n/a |
+| `gram_stain` | 0.696 | n/a |
+| `halophily` | 0.563 | n/a |
+| `isolation_source` | 0.368 | n/a |
+| `metabolite_production` | 0.120 | n/a |
+| `motility` | 0.455 | n/a |
+| `oxygen_tolerance` | 0.854 | n/a |
+| `pathogenicity_animal` | 0.753 | n/a |
+| `pathogenicity_human` | 0.699 | n/a |
+| `ph_class` | 0.575 | n/a |
+| `pigmentation` | 0.734 | n/a |
+| `sporulation` | 0.747 | n/a |
+| `temperature_class` | 0.951 | n/a |
+
+wrote paper/tables/31_lora_finetune.md
+done.
+=== [4/5] save results (SAVE_MODE=none) ===

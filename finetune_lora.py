@@ -526,6 +526,19 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--epochs", type=int, default=15)
     ap.add_argument("--lr", type=float, default=5e-4)
+    ap.add_argument("--lr-scale-rule", choices=["sqrt", "linear", "none"],
+                    default="sqrt",
+                    help="how to scale the base LR for the DDP large effective "
+                         "batch (== batch x WORLD_SIZE). sqrt: lr*sqrt(WORLD_SIZE) "
+                         "(default, safer for AdamW); linear: lr*WORLD_SIZE; none: "
+                         "no scaling. ALWAYS a no-op at WORLD_SIZE=1, so the "
+                         "single-GPU path is unchanged. Overridable via env LR_SCALE_RULE.")
+    ap.add_argument("--warmup-frac", type=float, default=0.05,
+                    help="linear LR warmup over this fraction of total optimizer "
+                         "steps (peak = the resolved/scaled LR), then constant.")
+    ap.add_argument("--warmup-min-steps", type=int, default=50,
+                    help="floor on warmup steps (max(warmup_frac*total, this)), so "
+                         "even short runs get a real ramp before the scaled LR.")
     ap.add_argument("--hidden", type=int, default=512)
     ap.add_argument("--dropout", type=float, default=0.2)
     ap.add_argument("--st-heads", type=int, default=4)
@@ -594,10 +607,51 @@ def main() -> None:
         train_model = DistributedDataParallel(net, **ddp_kwargs)
     eval_model = train_model.module if dd.enabled else net
 
-    optim = torch.optim.AdamW(trainable, lr=args.lr, weight_decay=1e-4)
+    # ---- DDP LR scaling -------------------------------------------------- #
+    # DDP averages gradients across WORLD_SIZE ranks, so the effective batch is
+    # batch x WORLD_SIZE and there are WORLD_SIZE x fewer optimizer steps per
+    # epoch. Compensate by raising the LR. sqrt(WORLD_SIZE) (default) is the
+    # conservative rule for adaptive optimizers (AdamW); linear (WORLD_SIZE) is
+    # the SGD-style rule. ALWAYS a no-op at WORLD_SIZE=1 -> single-GPU/frozen LR
+    # is byte-for-byte unchanged. Env LR_SCALE_RULE overrides the flag.
+    rule = os.environ.get("LR_SCALE_RULE", args.lr_scale_rule)
+    ws = dd.world_size if dd.enabled else 1
+    if ws <= 1 or rule == "none":
+        lr_scale = 1.0
+    elif rule == "linear":
+        lr_scale = float(ws)
+    else:  # sqrt
+        lr_scale = float(ws) ** 0.5
+    base_lr = args.lr
+    final_lr = base_lr * lr_scale
+
+    optim = torch.optim.AdamW(trainable, lr=final_lr, weight_decay=1e-4)
     use_amp = device.type == "cuda"
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
+    # ---- linear warmup --------------------------------------------------- #
+    # Ramp LR 0 -> final_lr over the first max(warmup_frac*total_steps,
+    # warmup_min_steps) optimizer steps, then hold constant. Most important for
+    # the scaled-LR DDP arm (a cold start at a large LR can diverge), but applied
+    # in every mode. total_steps counts per-rank optimizer steps (== batches);
+    # every rank shares the same count so the schedule is identical across ranks.
+    steps_per_epoch = len(loaders["train"]) if "train" in loaders else 0
+    total_steps = max(1, args.epochs * steps_per_epoch)
+    warmup_steps = max(args.warmup_min_steps, int(args.warmup_frac * total_steps))
+    warmup_steps = max(1, min(warmup_steps, total_steps))  # never exceed the run
+
+    def lr_at(step_idx: int) -> float:
+        # step_idx is 1-based (first optimizer step == 1) -> nonzero warmup start.
+        if step_idx >= warmup_steps:
+            return final_lr
+        return final_lr * step_idx / warmup_steps
+
+    dist_print(dd, f"[lr] base={base_lr:.3g} rule={rule} world_size={ws} "
+                   f"scale={lr_scale:.4g} final={final_lr:.3g} | warmup_steps="
+                   f"{warmup_steps}/{total_steps} (frac={args.warmup_frac}, "
+                   f"min={args.warmup_min_steps})")
+
+    global_step = 0
     for epoch in range(args.epochs):
         train_model.train(True)
         if dd.enabled and samplers.get("train") is not None \
@@ -623,6 +677,9 @@ def main() -> None:
                 # find_unused_parameters=False (cheaper, no static-graph hazard).
                 anchor = sum(p.sum() for p in trainable) * 0.0
                 loss = loss + anchor
+                global_step += 1
+                for g in optim.param_groups:
+                    g["lr"] = lr_at(global_step)
                 scaler.scale(loss).backward()
                 scaler.step(optim)
                 scaler.update()
@@ -632,6 +689,9 @@ def main() -> None:
             else:
                 if not real:
                     continue
+                global_step += 1
+                for g in optim.param_groups:
+                    g["lr"] = lr_at(global_step)
                 scaler.scale(loss).backward()
                 scaler.step(optim)
                 scaler.update()

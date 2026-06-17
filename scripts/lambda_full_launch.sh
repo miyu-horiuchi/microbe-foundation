@@ -64,7 +64,7 @@ fi
 # token never lands on the logged tmux command line.)
 FWD=""
 for k in MODEL MAX_GENOMES EPOCHS MAX_PROTEINS MODES SEEDS PARALLEL NUM_GPUS \
-         NPROC GPUS_PER_NODE \
+         NPROC GPUS_PER_NODE LR LR_SCALE_RULE \
          ENC_MICROBATCH REMOTE_DIR AUTO_TERMINATE INCREMENTAL_MODAL; do
   v="${!k:-}"; [ -n "$v" ] && FWD="$FWD $k=$v"
 done

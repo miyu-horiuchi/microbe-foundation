@@ -53,8 +53,9 @@ export NUM_GPUS="${NUM_GPUS:-}"
 # Multi-GPU DATA PARALLELISM (DDP): shard EACH batch of the slow LoRA arm across
 # N GPUs via torchrun -> ~Nx faster. NPROC (alias GPUS_PER_NODE) = processes/GPUs
 # per job: ""/1 = single-GPU (default, unchanged), "auto" = all visible GPUs,
-# "<N>" = N GPUs. Takes precedence over the across-GPU parallel runner; the frozen
-# arm always stays single-GPU (already fast). Forwarded to the box.
+# "<N>" = N GPUs. Takes precedence over the across-GPU parallel runner; when NPROC>1
+# EVERY arm (frozen included) shards across all N GPUs so none sits idle. Forwarded
+# to the box.
 export NPROC="${NPROC:-${GPUS_PER_NODE:-}}"
 
 echo "=== run_full.sh ==="

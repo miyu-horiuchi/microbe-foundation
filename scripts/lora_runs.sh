@@ -52,15 +52,26 @@ S3_DEST="${S3_DEST:-}"   # e.g. s3://microbe-foundation-esm2-perprotein/lora_res
 # DistributedSampler, and all-reduces the loss + all-gathers the val/test metrics
 # so the reported numbers equal the single-GPU result within fp noise.
 #
-# NPROC (a.k.a. GPUS_PER_NODE) selects the fan-out for the LoRA/full arms:
+# NPROC (a.k.a. GPUS_PER_NODE) selects the fan-out for EVERY arm (frozen + lora/full):
 #   unset / "" / 1  single-process plain `python3` (EXISTING behaviour, unchanged)
 #   auto            all visible GPUs (nvidia-smi -L), else 1
 #   <N>             exactly N processes/GPUs
-# The FROZEN arm intentionally stays SINGLE-GPU: it already runs the no_grad fast
-# path (~2x faster, no encoder backward) and is not the wall-clock bottleneck, so
-# DDP would add sync overhead for ~no benefit. Only frozen is exempt; lora/full
-# shard. Frozen and a DDP lora arm run sequentially here, each using the GPUs it
-# needs (frozen: 1; lora: all NPROC).
+# ALL arms -- including FROZEN -- shard across NPROC GPUs via torchrun/DDP when
+# NPROC>1. Previously frozen stayed single-GPU (it runs the no_grad fast path), but
+# on an 8x box that left 7 GPUs idle while the 1-GPU frozen arm became the
+# multi-hour bottleneck. finetune_lora.py is mode-agnostic under DDP: frozen freezes
+# the encoder (no_grad), so DDP only all-reduces the small set-transformer head +
+# classifier grads, and the x0 anchor (sum of all trainable params * 0) gives every
+# trainable param a grad path each step -> find_unused_parameters=False is safe, no
+# "parameter did not receive grad" hang. The metric all-gather reports the full
+# split (not a per-rank shard). LR-scaling note: WORLD_SIZE>1 raises the LR by
+# sqrt(WORLD_SIZE) (warmup'd) for EVERY arm, frozen included -- this is intentional
+# and correct here: DDP makes the effective batch NPROCx larger with NPROCx fewer
+# optimizer steps/epoch, so the head's AdamW needs the same sqrt compensation as
+# lora to stay trained, and both arms are re-run FRESH on the same box so identical
+# treatment keeps the frozen-vs-lora comparison apples-to-apples (no prior
+# single-GPU frozen baseline is being perturbed). Frozen and lora run sequentially,
+# each sharded across all NPROC GPUs.
 NPROC="${NPROC:-${GPUS_PER_NODE:-}}"
 _detect_gpus() {
   if command -v nvidia-smi >/dev/null 2>&1; then
@@ -74,7 +85,7 @@ mkdir -p "$OUTDIR"
 echo "model=$MODEL split=$SPLIT pooling=$POOLING modes=[$MODES] seeds=[$SEEDS]"
 echo "proteins=$PROTEINS epochs=$EPOCHS batch=$BATCH max_proteins=$MAX_PROTEINS enc_microbatch=$ENC_MICROBATCH lora_r=$LORA_R"
 if [[ "$NPROC" -gt 1 ]]; then
-  echo "DDP: lora/full arms shard each batch across nproc_per_node=$NPROC GPUs (torchrun); frozen stays single-GPU"
+  echo "DDP: ALL arms (frozen + lora/full) shard each batch across nproc_per_node=$NPROC GPUs (torchrun); no GPU idle"
 fi
 
 # Incremental durable upload: on a long multi-hour run a watchdog/crash can kill
@@ -95,8 +106,9 @@ for mode in $MODES; do
   for seed in $SEEDS; do
     out="$OUTDIR/${mode}_${SPLIT}_s${seed}.json"
     if [[ -f "$out" ]]; then echo "[skip] $out exists"; continue; fi
-    # DDP only for the trainable-encoder arms; frozen stays single-process.
-    if [[ "$mode" != "frozen" && "$NPROC" -gt 1 ]]; then
+    # DDP for EVERY arm (frozen included) when NPROC>1; WORLD_SIZE=1 falls back to
+    # the unchanged single-process `python3` path.
+    if [[ "$NPROC" -gt 1 ]]; then
       # Static single-node rendezvous pinned to IPv4 loopback. Avoids torchrun's
       # c10d/--standalone FQDN lookup (which can stall on hosts whose hostname
       # doesn't resolve) and needs no network. A fresh high random port per job

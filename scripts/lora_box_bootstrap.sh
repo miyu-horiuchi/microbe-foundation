@@ -126,9 +126,10 @@ fi
 
 # Two DIFFERENT multi-GPU strategies; pick exactly one:
 #   * DDP (NPROC>1): shard EACH batch of ONE job across N GPUs (torch
-#     DistributedDataParallel via torchrun). This is what makes the slow LoRA arm
-#     ~Nx faster when you have few (mode,seed) jobs but a big per-job cost. Uses
-#     the sequential runner (lora_runs.sh), which fires torchrun for lora/full.
+#     DistributedDataParallel via torchrun). This is what makes a slow arm ~Nx
+#     faster when you have few (mode,seed) jobs but a big per-job cost. Uses the
+#     sequential runner (lora_runs.sh), which fires torchrun for EVERY arm
+#     (frozen included) so no GPU sits idle.
 #   * Across-GPU parallel (PARALLEL / auto on >1 GPU): pin each INDEPENDENT
 #     (mode,seed) job to its own GPU (lora_runs_parallel.sh). Best when you have
 #     many jobs (e.g. 3 seeds x 2 modes) and a cheap-enough per-job cost.
@@ -143,7 +144,7 @@ case "$NPROC" in
 esac
 RUNNER="scripts/lora_runs.sh"
 if [ "$DDP_ON" = "1" ]; then
-  echo "  DDP runner: lora/full arm sharded across NPROC=$NPROC GPU(s) via torchrun (frozen stays single-GPU)"
+  echo "  DDP runner: ALL arms (frozen + lora/full) sharded across NPROC=$NPROC GPU(s) via torchrun (no GPU idle)"
 elif [ "${PARALLEL:-0}" = "1" ] || [ "${GPU_COUNT:-1}" -gt 1 ] 2>/dev/null; then
   RUNNER="scripts/lora_runs_parallel.sh"
   echo "  parallel runner selected (PARALLEL=${PARALLEL:-0}, gpus=$GPU_COUNT)"

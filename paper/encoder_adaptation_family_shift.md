@@ -13,7 +13,7 @@ fontsize: 11pt
 
 # Introduction
 
-Foundation models for bacterial genomes increasingly follow a common template: a protein language model such as ESM-2 [@lin2023esm2] embeds each open reading frame, and a genome-level model pools the resulting variable-size protein set into one vector for phenotype prediction [@wiatrak2025bacformer; @microgenomer2025; @bacpt2026]. In prior work [@horiuchi2026attention] we isolated the **pooling** step and showed that adaptive (attention / Set-Transformer) pooling helps gene-localized "machinery" traits more than diffuse "compositional" traits, but that the entire advantage collapses under family-level distribution shift. That study deliberately *froze* the encoder so that the result could be read as a pooling effect. It left open the obvious follow-up question:
+Foundation models for bacterial genomes increasingly follow a common template: a protein language model such as ESM-2 [@lin2023esm2] embeds each open reading frame, and a genome-level model pools the resulting variable-size protein set into one vector for phenotype prediction [@wiatrak2025bacformer; @microgenomer2025; @bacpt2026]. In prior work we isolated the **pooling** step and showed that adaptive (attention / Set-Transformer) pooling helps gene-localized "machinery" traits more than diffuse "compositional" traits, but that the entire advantage collapses under family-level distribution shift. That study deliberately *froze* the encoder so that the result could be read as a pooling effect. It left open the obvious follow-up question:
 
 > If the pooling operator is not the binding constraint under cross-family shift, is the **encoder**?
 
@@ -33,7 +33,7 @@ We are explicit about scope. This is a **single-seed pilot** with one encoder sc
 
 **Encoder fine-tuning vs frozen features.** Using a pretrained encoder frozen and training only a lightweight head is the cheaper alternative to fine-tuning the encoder end-to-end; parameter-efficient methods, of which LoRA [@hu2022lora] is the most widely used, sit between these poles by adapting the encoder through small low-rank updates. In protein modeling, ESM-2 [@lin2023esm2] is routinely used both frozen and fine-tuned, but the genome-level trait-prediction literature [@wiatrak2025bacformer; @microgenomer2025; @bacpt2026] reports benchmark numbers without isolating the frozen-vs-adapted decision under controlled distribution shift. Our contribution is to run exactly that ablation and report a null.
 
-**Distribution shift in genomic prediction.** Taxonomy-aware (species / genus / family held-out) evaluation is the relevant stress test for predicting traits of clades unlike anything seen in training---the "microbial dark matter" regime. Our prior work [@horiuchi2026attention] established that the pooling advantage decays to zero at family holdout and that traits such as pathogenicity are heavily clade-confounded. The present note inherits that family-held-out protocol and asks the encoder-adaptation question within it.
+**Distribution shift in genomic prediction.** Taxonomy-aware (species / genus / family held-out) evaluation is the relevant stress test for predicting traits of clades unlike anything seen in training---the "microbial dark matter" regime. Our prior work established that the pooling advantage decays to zero at family holdout and that traits such as pathogenicity are heavily clade-confounded. The present note inherits that family-held-out protocol and asks the encoder-adaptation question within it.
 
 **Metrics for imbalanced labels.** That accuracy is misleading under class imbalance is textbook, but it remains common to aggregate per-head accuracy into a single benchmark score. We provide a clean, mechanistic example from genomic trait prediction in which this aggregation *inverts* the qualitative conclusion: a model that gets strictly worse at the positive class is scored as better.
 
@@ -75,14 +75,14 @@ Read at face value, encoder adaptation gives a +0.011 improvement in the aggrega
 
 Decomposing the aggregate by head reveals that the *entire* improvement is carried by two heads, and in a way that signals failure rather than success.
 
-: The two heads that produce the aggregate gain. Accuracy is the primary metric; F1 is shown alongside.
+: The two heads that produce the aggregate gain. Accuracy is the primary metric; F1 is shown alongside. The *no-skill* column is the accuracy of a trivial classifier that always predicts the majority (negative) class.
 
-| Head                   | Acc (frozen → LoRA) | F1 (frozen → LoRA) |
-|------------------------|---------------------|--------------------|
-| pathogenicity_human    | 0.699 → 0.939       | 0.176 → **0.000**  |
-| pathogenicity_animal   | 0.753 → 0.956       | 0.152 → **0.000**  |
+| Head                   | No-skill acc | Acc (frozen → LoRA) | F1 (frozen → LoRA) |
+|------------------------|--------------|---------------------|--------------------|
+| pathogenicity_human    | 0.939        | 0.699 → 0.939       | 0.176 → **0.000**  |
+| pathogenicity_animal   | 0.956        | 0.753 → 0.956       | 0.152 → **0.000**  |
 
-On both pathogenicity heads the adapted model's accuracy jumps by ~0.20--0.24 while its F1 drops to *exactly zero*. F1 = 0 with high accuracy is the unambiguous signature of **majority-class collapse**: the adapted model has stopped predicting the (rare) positive class entirely, scoring well on accuracy precisely because ~94% of test genomes are negative. The frozen encoder, by contrast, still recovers some positives (F1 0.18 and 0.15). In other words, on the two traits that drive the headline number, encoder adaptation makes the classifier *strictly worse* at the thing the trait is about (Figure 2).
+The decisive observation is that **LoRA's accuracy equals the no-skill baseline to three decimals** (0.939 and 0.956): the adapted model has converged exactly onto the trivial majority-class predictor. The frozen encoder scores *lower* accuracy precisely because it still spends predictions on the rare positive class (nonzero F1). On both pathogenicity heads the adapted model's accuracy jumps by ~0.20--0.24 while its F1 drops to *exactly zero*. F1 = 0 with high accuracy is the unambiguous signature of **majority-class collapse**: the adapted model has stopped predicting the (rare) positive class entirely, scoring well on accuracy precisely because ~94% of test genomes are negative. The frozen encoder, by contrast, still recovers some positives (F1 0.18 and 0.15). In other words, on the two traits that drive the headline number, encoder adaptation makes the classifier *strictly worse* at the thing the trait is about (Figure 2).
 
 ![**The aggregate gain is an accuracy illusion.** On the two pathogenicity heads that drive the headline number, encoder adaptation *raises* accuracy (left) while *collapsing* F1 to exactly zero (right). High accuracy with zero F1 is the signature of a classifier that has stopped predicting the rare positive class---it is rewarded by accuracy precisely for getting worse at the trait.](figures/enc_fig2_accuracy_illusion.png){width=98%}
 

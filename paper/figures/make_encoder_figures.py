@@ -114,6 +114,11 @@ def fig_accuracy_illusion():
     f1_f = [frozen["per_head"][k]["metrics"]["f1"] for k in keys]
     f1_l = [lora["per_head"][k]["metrics"]["f1"] for k in keys]
 
+    # no-skill (majority-class) baseline: a model with F1=0 predicts all-negative,
+    # so its accuracy equals the negative-class prevalence. LoRA collapsed (F1=0),
+    # hence its accuracy IS the baseline for each head.
+    baseline = list(acc_l)
+
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.4))
     x = np.arange(2)
     w = 0.36
@@ -131,6 +136,12 @@ def fig_accuracy_illusion():
             ax.text(b.get_x() + b.get_width() / 2, h + 0.02,
                     f"{h:.2f}" if h > 0 else "0.00",
                     ha="center", va="bottom", fontsize=8.5, color=INK)
+    # dashed no-skill reference line on the Accuracy panel
+    for xi, bl in zip(x, baseline):
+        axes[0].plot([xi - 0.5, xi + 0.5], [bl, bl], ls="--", lw=1.4,
+                     color=INK, zorder=5)
+    axes[0].text(-0.5, baseline[0] + 0.015, "no-skill baseline",
+                 fontsize=8.5, color=INK, style="italic", va="bottom")
     axes[0].set_ylabel("score")
     # up / down annotations
     axes[0].annotate("", xy=(0.18, 0.97), xytext=(-0.18, 0.74),

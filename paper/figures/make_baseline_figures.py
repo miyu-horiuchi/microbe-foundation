@@ -22,6 +22,7 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CSV = os.path.join(HERE, "..", "tables", "32_baseline_regressors.csv")
+COS_BINS_CSV = os.path.join(HERE, "..", "tables", "33_cosine_family_collapse_bins.csv")
 
 plt.rcParams.update(
     {
@@ -316,12 +317,60 @@ def fig_per_trait(df):
     save(fig, "baseline_regressor_per_trait")
 
 
+# --------------------------------------------------------------------------- #
+# Figure: cosine-support geometry diagnostic (for the family-collapse paper)
+# --------------------------------------------------------------------------- #
+def fig_cosine_geometry():
+    b = pd.read_csv(COS_BINS_CSV)
+    traits = ["catalase", "motility", "sporulation"]
+    bins = ["low", "mid", "high"]
+    bin_label = {"low": "low\n(far)", "mid": "mid", "high": "high\n(near)"}
+    trait_color = {"catalase": BLUE, "motility": ORANGE, "sporulation": GREEN}
+    trait_marker = {"catalase": "o", "motility": "s", "sporulation": "^"}
+
+    fig, ax = plt.subplots(figsize=(8.6, 5.2))
+    x = np.arange(len(bins))
+    for t in traits:
+        sub = b[b["trait"] == t].set_index("bin").reindex(bins)
+        ax.plot(
+            x,
+            sub["knn_f1"].values,
+            color=trait_color[t],
+            marker=trait_marker[t],
+            markersize=8,
+            linewidth=2.4,
+            label=t,
+        )
+    ax.set_xticks(x)
+    ax.set_xticklabels([bin_label[bn] for bn in bins])
+    ax.set_xlabel("Cosine support of held-out family (nearest training-family centroid)")
+    ax.set_ylabel("Cosine kNN macro-F1")
+    ax.set_title("Family transfer improves with geometric coverage")
+    ax.set_ylim(0.50, 0.92)
+    ax.margins(x=0.12)
+    ax.legend(frameon=False, loc="lower right", fontsize=10, title="Trait")
+    fig.text(
+        0.5,
+        -0.02,
+        "Held-out genomes binned by cosine similarity to the nearest training family. "
+        "Source: paper/tables/33_cosine_family_collapse_bins.csv",
+        ha="center",
+        fontsize=8.5,
+        color="#666666",
+    )
+    save(fig, "enc_fig_cosine_geometry")
+
+
 def main():
     df = load()
     fig_schematic()
     fig_rank_sweep(df)
     fig_per_trait(df)
-    print("wrote baseline_regressor_schematic / _rank_sweep / _per_trait (.png + .pdf)")
+    fig_cosine_geometry()
+    print(
+        "wrote baseline_regressor_schematic / _rank_sweep / _per_trait "
+        "and enc_fig_cosine_geometry (.png + .pdf)"
+    )
 
 
 if __name__ == "__main__":

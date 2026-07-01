@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+"""Generate figures for the frozen-embedding baseline-regressor writeup.
+
+Reads paper/tables/32_baseline_regressors.csv and produces:
+  baseline_regressor_schematic.{png,pdf}   experiment pipeline schematic
+  baseline_regressor_rank_sweep.{png,pdf}   mean AUROC vs PCA rank per model
+  baseline_regressor_per_trait.{png,pdf}    best-model AUROC / macro-F1 per trait
+
+Palette matches make_encoder_figures.py (Wong 2011 colourblind-safe on white).
+"""
+from __future__ import annotations
+
+import os
+
+import numpy as np
+import pandas as pd
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+CSV = os.path.join(HERE, "..", "tables", "32_baseline_regressors.csv")
+
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "DejaVu Serif"],
+        "font.size": 11,
+        "axes.titlesize": 13,
+        "axes.labelsize": 11.5,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.grid": True,
+        "grid.color": "#e6e6e6",
+        "grid.linewidth": 0.8,
+        "figure.dpi": 200,
+    }
+)
+
+# Wong 2011 colourblind-safe palette
+INK = "#222222"
+BLUE = "#0072B2"
+ORANGE = "#E69F00"
+GREEN = "#009E73"
+VERM = "#D55E00"
+PURPLE = "#CC79A7"
+GREY = "#7f7f7f"
+ENC_TINT = "#eaf0f7"
+PCA_TINT = "#fdf1dd"
+HEAD_TINT = "#eef6f1"
+EVAL_TINT = "#f2f2f2"
+
+MODEL_LABEL = {
+    "logistic_l2": "L2 logistic",
+    "sgd_logistic": "SGD logistic",
+    "regularized_rf": "Regularized RF",
+    "hist_gd": "Hist grad. boosting",
+    "poly2_logistic": "Polynomial logistic",
+    "soft_vote_ensemble": "Soft-vote ensemble",
+}
+MODEL_STYLE = {
+    "logistic_l2": dict(color=BLUE, marker="o"),
+    "regularized_rf": dict(color=GREEN, marker="s"),
+    "hist_gd": dict(color=VERM, marker="^"),
+    "poly2_logistic": dict(color=PURPLE, marker="D"),
+    "sgd_logistic": dict(color=GREY, marker="v"),
+}
+
+
+def save(fig, base):
+    p = os.path.join(HERE, base)
+    fig.savefig(p + ".png", bbox_inches="tight", facecolor="white")
+    fig.savefig(p + ".pdf", bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def load():
+    df = pd.read_csv(CSV)
+    return df[df["status"] == "ok"].copy()
+
+
+# --------------------------------------------------------------------------- #
+# Figure 1: schematic
+# --------------------------------------------------------------------------- #
+def fig_schematic():
+    fig, ax = plt.subplots(figsize=(11, 4.2))
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 40)
+    ax.axis("off")
+
+    def box(x, y, w, h, tint, edge, title, lines, title_size=12.5):
+        ax.add_patch(
+            FancyBboxPatch(
+                (x, y),
+                w,
+                h,
+                boxstyle="round,pad=0.3,rounding_size=1.2",
+                linewidth=1.6,
+                edgecolor=edge,
+                facecolor=tint,
+            )
+        )
+        ax.text(
+            x + w / 2,
+            y + h - 3.2,
+            title,
+            ha="center",
+            va="center",
+            fontsize=title_size,
+            fontweight="bold",
+            color=INK,
+        )
+        for i, ln in enumerate(lines):
+            ax.text(
+                x + w / 2,
+                y + h - 7.0 - i * 3.1,
+                ln,
+                ha="center",
+                va="center",
+                fontsize=9.5,
+                color="#333333",
+            )
+
+    def arrow(x0, x1, y):
+        ax.add_patch(
+            FancyArrowPatch(
+                (x0, y),
+                (x1, y),
+                arrowstyle="-|>",
+                mutation_scale=16,
+                linewidth=1.8,
+                color="#444444",
+            )
+        )
+
+    y = 20
+    h = 13
+    box(1, y, 16, h, "#f7f7f7", "#555555", "Genome", ["BacDive strain", "+ trait labels"])
+    arrow(17.5, 21, y + h / 2)
+    box(21, y, 17, h, ENC_TINT, BLUE, "Frozen ESM-2", ["640-d genome", "embedding"])
+    arrow(38.5, 42, y + h / 2)
+    box(42, y, 16, h, PCA_TINT, ORANGE, "PCA rank", ["6 / 10 / 25", "capacity sweep"])
+    arrow(58.5, 62, y + h / 2)
+    box(
+        62,
+        16.5,
+        37,
+        20,
+        HEAD_TINT,
+        GREEN,
+        "Simple readouts",
+        [
+            "L2 logistic  ·  SGD logistic",
+            "Polynomial logistic",
+            "Regularized random forest",
+            "Histogram gradient boosting",
+            "Soft-vote ensemble",
+        ],
+    )
+    # down arrow to eval
+    ax.add_patch(
+        FancyArrowPatch(
+            (80.5, 16.5),
+            (80.5, 12.5),
+            arrowstyle="-|>",
+            mutation_scale=16,
+            linewidth=1.8,
+            color="#444444",
+        )
+    )
+    box(
+        62,
+        4,
+        37,
+        8,
+        EVAL_TINT,
+        "#555555",
+        "Family-held-out AUROC / macro-F1",
+        [],
+        title_size=11.5,
+    )
+
+    ax.text(
+        1,
+        11.5,
+        "Interpretation",
+        ha="left",
+        va="center",
+        fontsize=12,
+        fontweight="bold",
+        color=INK,
+    )
+    ax.text(
+        1,
+        7.6,
+        "Strong simple readouts  \u2192  frozen embeddings already carry trait signal.",
+        ha="left",
+        va="center",
+        fontsize=9.5,
+        color="#333333",
+    )
+    ax.text(
+        1,
+        4.4,
+        "Rank 25 > rank 6  \u2192  not a six-dimensional perturbation-style task.",
+        ha="left",
+        va="center",
+        fontsize=9.5,
+        color="#333333",
+    )
+    ax.set_title(
+        "Baseline readout experiment: is encoder fine-tuning necessary?",
+        fontsize=14,
+        fontweight="bold",
+        pad=10,
+    )
+    save(fig, "baseline_regressor_schematic")
+
+
+# --------------------------------------------------------------------------- #
+# Figure 2: rank sweep
+# --------------------------------------------------------------------------- #
+def fig_rank_sweep(df):
+    ranks = [6, 10, 25]
+    sweep = df[df["rank"].isin([str(r) for r in ranks] + ranks)].copy()
+    sweep["rank_i"] = sweep["rank"].astype(int)
+
+    fig, ax = plt.subplots(figsize=(9, 5.4))
+    for model in ["logistic_l2", "regularized_rf", "hist_gd", "poly2_logistic", "sgd_logistic"]:
+        sub = sweep[sweep["model"] == model]
+        means = sub.groupby("rank_i")["auroc"].mean().reindex(ranks)
+        st = MODEL_STYLE[model]
+        ax.plot(
+            ranks,
+            means.values,
+            color=st["color"],
+            marker=st["marker"],
+            markersize=7,
+            linewidth=2.2,
+            label=MODEL_LABEL[model],
+        )
+
+    ens = df[df["model"] == "soft_vote_ensemble"]["auroc"].mean()
+    ax.axhline(ens, color=INK, linestyle="--", linewidth=1.8, alpha=0.8)
+    ax.text(
+        25,
+        ens + 0.004,
+        f"soft-vote ensemble  {ens:.3f}",
+        ha="right",
+        va="bottom",
+        fontsize=9.5,
+        color=INK,
+    )
+
+    ax.set_xticks(ranks)
+    ax.set_xlabel("PCA rank before downstream model")
+    ax.set_ylabel("Mean AUROC (catalase, motility, sporulation)")
+    ax.set_title("Rank 25 beats rank 6 on frozen ESM-2 embeddings")
+    ax.set_ylim(0.68, 0.84)
+    ax.margins(x=0.08)
+    ax.legend(frameon=False, loc="lower right", fontsize=10)
+    fig.text(
+        0.5,
+        -0.02,
+        "Family-held-out split. Source: paper/tables/32_baseline_regressors.csv",
+        ha="center",
+        fontsize=8.5,
+        color="#666666",
+    )
+    save(fig, "baseline_regressor_rank_sweep")
+
+
+# --------------------------------------------------------------------------- #
+# Figure 3: best model per trait (AUROC + macro-F1)
+# --------------------------------------------------------------------------- #
+def fig_per_trait(df):
+    traits = ["catalase", "motility", "sporulation"]
+    best = {}
+    for t in traits:
+        sub = df[(df["target"] == t) & (df["model"] != "chance")]
+        row = sub.loc[sub["auroc"].idxmax()]
+        best[t] = row
+
+    x = np.arange(len(traits))
+    w = 0.36
+    auroc = [best[t]["auroc"] for t in traits]
+    f1 = [best[t]["macro_f1"] for t in traits]
+
+    fig, ax = plt.subplots(figsize=(8.4, 5.2))
+    b1 = ax.bar(x - w / 2, auroc, w, color=BLUE, label="AUROC")
+    b2 = ax.bar(x + w / 2, f1, w, color=ORANGE, label="Macro-F1")
+    ax.axhline(0.5, color=GREY, linestyle=":", linewidth=1.4)
+    ax.text(len(traits) - 0.5, 0.51, "chance AUROC", ha="right", fontsize=8.5, color=GREY)
+
+    for bars in (b1, b2):
+        for rect in bars:
+            ax.text(
+                rect.get_x() + rect.get_width() / 2,
+                rect.get_height() + 0.012,
+                f"{rect.get_height():.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                color=INK,
+            )
+
+    labels = [f"{t}\n({MODEL_LABEL[best[t]['model']]}, r={best[t]['rank']})" for t in traits]
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9.5)
+    ax.set_ylabel("Score on held-out families")
+    ax.set_ylim(0, 1.0)
+    ax.set_title("Best simple readout per trait")
+    ax.legend(frameon=False, loc="upper left", fontsize=10)
+    save(fig, "baseline_regressor_per_trait")
+
+
+def main():
+    df = load()
+    fig_schematic()
+    fig_rank_sweep(df)
+    fig_per_trait(df)
+    print("wrote baseline_regressor_schematic / _rank_sweep / _per_trait (.png + .pdf)")
+
+
+if __name__ == "__main__":
+    main()

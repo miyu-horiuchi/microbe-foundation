@@ -64,6 +64,8 @@ Simple readouts are not weak controls; they are competitive models.
 
 The most striking result is sporulation: a simple ensemble over frozen embeddings reaches AUROC 0.936 and macro-F1 0.848 on held-out families. This means the ESM-2 genome embedding already exposes a strong sporulation signal to lightweight readouts. Motility is weaker but still above chance. Catalase is strongly ranked by logistic regression, though its high positive rate makes macro-F1 the more cautious measure.
 
+![**Best readout per trait.** AUROC and macro-F1 for the strongest simple model on each held-out-family trait. Sporulation is highly recoverable, catalase is well ranked, and motility is the hardest of the three but still clears chance.](figures/baseline_regressor_per_trait.png){width=85%}
+
 ## Model-family comparison
 
 : Mean performance across catalase, motility, and sporulation.

@@ -1,13 +1,13 @@
 target,group,primary_metric,lower_bound,plateau_step,plateau_value,plateaued,ceiling_knn_auroc,verdict
-catalase,binary_trait,auroc,0.750539382153465,5,0.7925644275454161,True,0.7643278927492203,NO — coverage-limited
+catalase,binary_trait,auroc,0.750539382153465,5,0.8157780164281776,True,0.7643278927492203,NO — coverage-limited
 cytochrome_oxidase,binary_trait,auroc,0.8154306925252041,3,0.8472193079743813,True,,unknown
-sporulation,binary_trait,auroc,0.8238329833629463,5,0.9247940558875788,True,0.924156032951058,NO — coverage-limited
-pigmentation,binary_trait,auroc,0.5593279569892473,2,0.5552060931899643,True,,unknown
+sporulation,binary_trait,auroc,0.8238329833629463,5,0.9333871749313518,True,0.924156032951058,NO — coverage-limited
+pigmentation,binary_trait,auroc,0.5593279569892473,2,0.5593279569892473,True,,unknown
 pathogenicity_human,binary_trait,auprc,0.09436737570847357,5,0.15589126059353023,True,,unknown
-pathogenicity_animal,binary_trait,auprc,0.19533008282020775,6,0.1887119846438708,True,,unknown
-motility,binary_trait,auroc,0.6773771292395474,7,0.7212060049887028,False,0.6949612247358059,keep-scaling-simple
-cultivation_medium:65,cultivation_medium_one_vs_rest,auprc,0.6842243881868064,4,0.7788634927494458,True,,unknown
-cultivation_medium:514,cultivation_medium_one_vs_rest,auprc,0.2906264684219121,4,0.7726387353586531,True,,unknown
-cultivation_medium:693,cultivation_medium_one_vs_rest,auprc,0.0996890087378201,7,0.22089411262054948,True,,unknown
+pathogenicity_animal,binary_trait,auprc,0.19533008282020775,6,0.23956703128943335,True,,unknown
+motility,binary_trait,auroc,0.6773771292395474,7,0.7384856474340944,False,0.6949612247358059,keep-scaling-simple
+cultivation_medium:65,cultivation_medium_one_vs_rest,auprc,0.6842243881868064,4,0.8024513143171671,True,,unknown
+cultivation_medium:514,cultivation_medium_one_vs_rest,auprc,0.2906264684219121,4,0.7833163460141767,True,,unknown
+cultivation_medium:693,cultivation_medium_one_vs_rest,auprc,0.0996890087378201,7,0.24878412678809253,True,,unknown
 cultivation_medium:830,cultivation_medium_one_vs_rest,auprc,0.2001890867563813,4,0.4155863509862787,True,,unknown
-cultivation_medium:92,cultivation_medium_one_vs_rest,auprc,0.1457516025985644,4,0.15147531983867085,True,,unknown
+cultivation_medium:92,cultivation_medium_one_vs_rest,auprc,0.1457516025985644,4,0.2127931629323556,True,,unknown

@@ -66,7 +66,7 @@ def detect_plateau(metrics: list[float], eps: float = 0.005) -> dict:
                 return {
                     "lower_bound": lower_bound,
                     "plateau_index": i,
-                    "plateau_value": metrics[i],
+                    "plateau_value": running,
                     "plateaued": True,
                 }
         else:
@@ -74,7 +74,7 @@ def detect_plateau(metrics: list[float], eps: float = 0.005) -> dict:
     return {
         "lower_bound": lower_bound,
         "plateau_index": len(metrics) - 1,
-        "plateau_value": metrics[-1],
+        "plateau_value": running,
         "plateaued": False,
     }
 
@@ -136,6 +136,12 @@ def run_capacity_ladder(feats, df, targets, ceilings, seed):
             })
         pl = detect_plateau(metrics)
         ceiling = ceilings.get(target.name, float("nan"))
+        # The ceiling is always a kNN AUROC (Table 33). If this target's primary
+        # metric is AUPRC (rare-positive targets), comparing plateau vs. ceiling
+        # would silently mix two different metric scales, so force "unknown"
+        # instead of a meaningless AUROC-minus-AUPRC verdict.
+        if metric_name != "auroc":
+            ceiling = float("nan")
         verdict = escalation_verdict(pl["plateau_value"], ceiling, pl["plateaued"])
         summary_rows.append({
             "target": target.name, "group": target.group,
@@ -333,7 +339,9 @@ def write_tables(out_dir, rung_rows, summary_rows, fusion_rows, stack_rows):
 
     slines = ["# Table 36 -- Learned stack vs soft-vote", "",
               "Base learners = Table-32 ensemble set. Out-of-fold predictions use GroupKFold on "
-              "`family` (no family leakage); meta-learner = balanced logistic regression.", "",
+              "`family` (no family leakage); meta-learner = balanced logistic regression. "
+              "The `best_base` column selects the strongest single base learner on the test set "
+              "(an optimistic oracle), shown for reference only.", "",
               "| Target | best_base | soft_vote | learned_stack |", "|---|---:|---:|---:|"]
     by_t = {}
     for r in stack_rows:

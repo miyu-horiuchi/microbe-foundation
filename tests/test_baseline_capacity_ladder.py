@@ -38,6 +38,15 @@ def test_detect_plateau_finds_first_flat_run():
     assert abs(out["plateau_value"] - 0.804) < 1e-9
 
 
+def test_detect_plateau_reports_running_max_not_post_peak_dip():
+    # peaks at 0.816 (index 2), then declines; stall triggers at index 4
+    metrics = [0.70, 0.80, 0.816, 0.79, 0.78, 0.77]
+    out = cl.detect_plateau(metrics, eps=0.005)
+    assert out["plateaued"] is True
+    assert out["plateau_index"] == 4
+    assert abs(out["plateau_value"] - 0.816) < 1e-9   # running max, NOT metrics[4]=0.78
+
+
 def test_detect_plateau_reports_not_plateaued_when_still_climbing():
     metrics = [0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
     out = cl.detect_plateau(metrics, eps=0.005)

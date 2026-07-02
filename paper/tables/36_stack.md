@@ -1,6 +1,6 @@
 # Table 36 -- Learned stack vs soft-vote
 
-Base learners = Table-32 ensemble set. Out-of-fold predictions use GroupKFold on `family` (no family leakage); meta-learner = balanced logistic regression.
+Base learners = Table-32 ensemble set. Out-of-fold predictions use GroupKFold on `family` (no family leakage); meta-learner = balanced logistic regression. The `best_base` column selects the strongest single base learner on the test set (an optimistic oracle), shown for reference only.
 
 | Target | best_base | soft_vote | learned_stack |
 |---|---:|---:|---:|

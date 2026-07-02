@@ -1,0 +1,4 @@
+target,group,primary_metric,lower_bound,plateau_step,plateau_value,plateaued,ceiling_knn_auroc,verdict
+motility,binary_trait,auroc,0.6773771292395474,7,0.7212060049887028,False,0.6949612247358059,keep-scaling-simple
+sporulation,binary_trait,auroc,0.8238329833629463,5,0.9247940558875788,True,0.924156032951058,NO — coverage-limited
+catalase,binary_trait,auroc,0.750539382153465,5,0.7925644275454161,True,0.7643278927492203,NO — coverage-limited

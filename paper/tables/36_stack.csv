@@ -1,0 +1,10 @@
+target,group,method,primary_metric,score
+motility,binary_trait,best_base,auroc,0.7166917544222965
+motility,binary_trait,soft_vote,auroc,0.7314507728780241
+motility,binary_trait,learned_stack,auroc,0.7156470322782051
+sporulation,binary_trait,best_base,auroc,0.9225730899693103
+sporulation,binary_trait,soft_vote,auroc,0.9363511549022775
+sporulation,binary_trait,learned_stack,auroc,0.9299063156194476
+catalase,binary_trait,best_base,auroc,0.8050322984290998
+catalase,binary_trait,soft_vote,auroc,0.8048065480509681
+catalase,binary_trait,learned_stack,auroc,0.8092764055379793

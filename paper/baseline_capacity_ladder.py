@@ -291,3 +291,84 @@ def run_stack(feats, df, targets, seed, n_splits=5):
             meta.fit(oof, y_train)
             _emit("learned_stack", meta.predict_proba(test_probs)[:, 1])
     return rows
+
+
+def _mean_lift_by_source(fusion_rows):
+    by = {}
+    for r in fusion_rows:
+        if r["arm"] == "embed+extra" and not np.isnan(r["lift"]):
+            by.setdefault(r["source"], []).append(r["lift"])
+    return {s: float(np.mean(v)) for s, v in sorted(by.items())}
+
+
+def write_tables(out_dir, rung_rows, summary_rows, fusion_rows, stack_rows):
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rung_rows).to_csv(out / "34_capacity_ladder_rungs.csv", index=False)
+    pd.DataFrame(summary_rows).to_csv(out / "34_capacity_ladder.csv", index=False)
+    pd.DataFrame(fusion_rows).to_csv(out / "35_fusion.csv", index=False)
+    pd.DataFrame(stack_rows).to_csv(out / "36_stack.csv", index=False)
+
+    lines = ["# Table 34 -- Capacity ladder: plateau and escalation verdict", "",
+             "Ladder: L2 logistic at PCA rank 6/10/25/50/100/full, then random forest and "
+             "hist gradient boosting at full rank. Plateau EPS=0.005; escalation MARGIN=0.02; "
+             "ceiling = cosine-kNN AUROC from Table 33.", "",
+             "| Target | Primary | Lower bound | Plateau | Plateaued | Ceiling (kNN) | Verdict |",
+             "|---|---|---:|---:|:--:|---:|---|"]
+    for r in summary_rows:
+        lines.append(f"| `{r['target']}` | {r['primary_metric']} | {r['lower_bound']:.3f} | "
+                     f"{r['plateau_value']:.3f} | {r['plateaued']} | {r['ceiling_knn_auroc']:.3f} | {r['verdict']} |")
+    (out / "34_capacity_ladder.md").write_text("\n".join(lines) + "\n")
+
+    ml = _mean_lift_by_source(fusion_rows)
+    flines = ["# Table 35 -- Embedding + extra-data fusion", "",
+              "Lift = primary metric(embed+extra) − primary metric(embed), averaged over "
+              "logistic/RF/hist-GB and all targets. Extra encoders fit on train only; unseen "
+              "test categories map to zero. Taxonomy raising clade-confounded traits is not a "
+              "clean generalization gain.", "",
+              "| Extra-data source | Mean lift |", "|---|---:|"]
+    for s, v in ml.items():
+        flines.append(f"| {s} | {v:+.3f} |")
+    (out / "35_fusion.md").write_text("\n".join(flines) + "\n")
+
+    slines = ["# Table 36 -- Learned stack vs soft-vote", "",
+              "Base learners = Table-32 ensemble set. Out-of-fold predictions use GroupKFold on "
+              "`family` (no family leakage); meta-learner = balanced logistic regression.", "",
+              "| Target | best_base | soft_vote | learned_stack |", "|---|---:|---:|---:|"]
+    by_t = {}
+    for r in stack_rows:
+        by_t.setdefault(r["target"], {})[r["method"]] = r["score"]
+    for t, d in sorted(by_t.items()):
+        slines.append(f"| `{t}` | {d.get('best_base', float('nan')):.3f} | "
+                      f"{d.get('soft_vote', float('nan')):.3f} | {d.get('learned_stack', float('nan')):.3f} |")
+    (out / "36_stack.md").write_text("\n".join(slines) + "\n")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--features", default="data/esm2_features.npz")
+    ap.add_argument("--splits", default="data/splits.parquet")
+    ap.add_argument("--traits-path", default="data/traits.parquet")
+    ap.add_argument("--targets", nargs="+", default=br.DEFAULT_BINARY_TARGETS)
+    ap.add_argument("--top-media", type=int, default=5)
+    ap.add_argument("--min-positive", type=int, default=50)
+    ap.add_argument("--cosine-summary", default="paper/tables/33_cosine_family_collapse_summary.csv")
+    ap.add_argument("--fusion-sources", nargs="+", default=["taxonomy", "isolation"])
+    ap.add_argument("--second-embeddings", nargs="*", default=["data/eggnog_features_6738.npz"])
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--out-dir", default="paper/tables")
+    args = ap.parse_args()
+
+    feats, df = br.load_aligned_frame(args.features, args.splits, args.traits_path)
+    targets = br.collect_targets(df, args.targets, top_media=args.top_media, min_positive=args.min_positive)
+    ceilings = load_ceilings(args.cosine_summary)
+
+    rung_rows, summary_rows = run_capacity_ladder(feats, df, targets, ceilings, args.seed)
+    fusion_rows = run_fusion(feats, df, targets, args.fusion_sources, args.second_embeddings, args.seed)
+    stack_rows = run_stack(feats, df, targets, args.seed)
+    write_tables(args.out_dir, rung_rows, summary_rows, fusion_rows, stack_rows)
+    print(f"wrote 34/35/36 tables to {args.out_dir}")
+
+
+if __name__ == "__main__":
+    main()

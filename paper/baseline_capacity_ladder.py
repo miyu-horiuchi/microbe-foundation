@@ -232,3 +232,62 @@ def run_fusion(feats, df, targets, sources, second_embed_paths, seed):
                         "primary_metric": metric, "score": value, "lift": lift,
                     })
     return rows
+
+
+from sklearn.linear_model import LogisticRegression  # noqa: E402
+from sklearn.model_selection import GroupKFold  # noqa: E402
+
+STACK_BASE: list[tuple[str, int | None]] = [
+    ("logistic_l2", 25), ("sgd_logistic", 25), ("poly2_logistic", 10),
+    ("regularized_rf", 25), ("hist_gd", 25),
+]
+
+
+def oof_predictions(x_train, y_train, families_train, base_models, seed, n_splits=5):
+    if len(set(families_train.tolist())) < n_splits:
+        return None
+    oof = np.zeros((len(y_train), len(base_models)), dtype=np.float32)
+    gkf = GroupKFold(n_splits=n_splits)
+    for tr_idx, va_idx in gkf.split(x_train, y_train, families_train):
+        if len(np.unique(y_train[tr_idx])) < 2:
+            continue
+        for m, (model, rank) in enumerate(base_models):
+            est = br.build_estimator(model, rank, x_train[tr_idx], seed)
+            oof[va_idx, m] = br.predict_probability(
+                br.clone(est), x_train[tr_idx], y_train[tr_idx], x_train[va_idx])
+    return oof
+
+
+def run_stack(feats, df, targets, seed, n_splits=5):
+    rows = []
+    for target in targets:
+        arr = _train_test_arrays(feats, df, target, seed)
+        if arr is None:
+            continue
+        sub, x_train, y_train, x_test, y_test = arr
+        fam_train = sub["family"].to_numpy()[(sub["fsplit"] == "train").to_numpy()]
+        oof = oof_predictions(x_train, y_train, fam_train, STACK_BASE, seed, n_splits)
+
+        test_probs = []
+        for model, rank in STACK_BASE:
+            est = br.build_estimator(model, rank, x_train, seed)
+            test_probs.append(br.predict_probability(br.clone(est), x_train, y_train, x_test))
+        test_probs = np.vstack(test_probs).T  # (n_test, n_base)
+
+        def _emit(method, prob):
+            row = br.metrics_row(y_test, prob)
+            row["test_pos_rate"] = float(y_test.mean())
+            metric = br.primary_metric(row)
+            rows.append({"target": target.name, "group": target.group,
+                         "method": method, "primary_metric": metric, "score": float(row[metric])})
+
+        best_base = max(range(len(STACK_BASE)),
+                        key=lambda m: br.metrics_row(y_test, test_probs[:, m])[
+                            br.primary_metric({"test_pos_rate": float(y_test.mean())})])
+        _emit("best_base", test_probs[:, best_base])
+        _emit("soft_vote", test_probs.mean(axis=1))
+        if oof is not None:
+            meta = LogisticRegression(max_iter=3000, class_weight="balanced")
+            meta.fit(oof, y_train)
+            _emit("learned_stack", meta.predict_proba(test_probs)[:, 1])
+    return rows

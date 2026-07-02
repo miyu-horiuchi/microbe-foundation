@@ -73,3 +73,22 @@ def test_build_extra_matrix_taxonomy_is_train_fit():
     assert mat[0].tolist() == [1.0, 1.0, 1.0]
     assert mat[2].tolist() == [0.0, 0.0, 0.0]
     assert mat[3].tolist() == [0.0, 0.0, 0.0]
+
+
+def test_oof_predictions_uses_grouped_folds_without_family_leak():
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(40, 5)).astype(np.float32)
+    y = (x[:, 0] > 0).astype(int)
+    families = np.repeat([f"fam{i}" for i in range(8)], 5)  # 8 families
+    base = [("logistic_l2", None)]
+    oof = cl.oof_predictions(x, y, families, base, seed=0, n_splits=4)
+    assert oof is not None
+    assert oof.shape == (40, 1)
+    assert np.all((oof >= 0) & (oof <= 1))
+
+
+def test_oof_predictions_returns_none_when_too_few_families():
+    x = np.zeros((10, 3), np.float32)
+    y = np.array([0, 1] * 5)
+    families = np.array(["a", "b"] * 5)      # only 2 families
+    assert cl.oof_predictions(x, y, families, [("logistic_l2", None)], seed=0, n_splits=5) is None

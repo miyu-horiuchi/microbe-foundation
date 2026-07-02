@@ -23,6 +23,9 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 HERE = os.path.dirname(os.path.abspath(__file__))
 CSV = os.path.join(HERE, "..", "tables", "32_baseline_regressors.csv")
 COS_BINS_CSV = os.path.join(HERE, "..", "tables", "33_cosine_family_collapse_bins.csv")
+CAPACITY_LADDER_RUNGS_CSV = os.path.join(HERE, "..", "tables", "34_capacity_ladder_rungs.csv")
+CAPACITY_LADDER_CSV = os.path.join(HERE, "..", "tables", "34_capacity_ladder.csv")
+FUSION_CSV = os.path.join(HERE, "..", "tables", "35_fusion.csv")
 
 plt.rcParams.update(
     {
@@ -361,15 +364,88 @@ def fig_cosine_geometry():
     save(fig, "enc_fig_cosine_geometry")
 
 
+RUNG_LABELS = ["lr6", "lr10", "lr25", "lr50", "lr100", "lrfull", "rf", "histgb"]
+
+
+# --------------------------------------------------------------------------- #
+# Figure: capacity ladder (simple readout capacity vs. held-out performance)
+# --------------------------------------------------------------------------- #
+def fig_capacity_ladder():
+    rungs = pd.read_csv(CAPACITY_LADDER_RUNGS_CSV)
+    summ = pd.read_csv(CAPACITY_LADDER_CSV).set_index("target")
+    trait_color = {"catalase": BLUE, "motility": ORANGE, "sporulation": GREEN}
+    trait_marker = {"catalase": "o", "motility": "s", "sporulation": "^"}
+
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    for target, g in rungs.groupby("target"):
+        g = g.sort_values("step")
+        ax.plot(
+            g["step"],
+            g["score"],
+            color=trait_color.get(target, GREY),
+            marker=trait_marker.get(target, "o"),
+            markersize=6,
+            linewidth=2.0,
+            label=target,
+        )
+        ceil = summ.loc[target, "ceiling_knn_auroc"] if target in summ.index else float("nan")
+        if pd.notna(ceil):
+            ax.axhline(ceil, color=trait_color.get(target, GREY), ls="--", lw=1.2, alpha=0.6)
+
+    ax.set_xticks(range(8))
+    ax.set_xticklabels(RUNG_LABELS, rotation=30)
+    ax.set_xlabel("capacity rung (simple → complex)")
+    ax.set_ylabel("primary metric on held-out families")
+    ax.set_title("Capacity ladder: where simple readouts plateau")
+    ax.legend(frameon=False, fontsize=9, title="Trait")
+    fig.text(
+        0.5,
+        -0.02,
+        "Dashed lines: cosine kNN ceiling per trait. "
+        "Source: paper/tables/34_capacity_ladder_rungs.csv, 34_capacity_ladder.csv",
+        ha="center",
+        fontsize=8.5,
+        color="#666666",
+    )
+    save(fig, "capacity_ladder")
+
+
+# --------------------------------------------------------------------------- #
+# Figure: fusion lift (does cheap side-data help under family shift?)
+# --------------------------------------------------------------------------- #
+def fig_fusion_lift():
+    fusion = pd.read_csv(FUSION_CSV)
+    sub = fusion[(fusion["arm"] == "embed+extra") & fusion["lift"].notna()]
+    means = sub.groupby("source")["lift"].mean().sort_values()
+
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    colors = [GREEN if v >= 0 else VERM for v in means.values]
+    ax.barh(means.index, means.values, color=colors)
+    ax.axvline(0, color=INK, lw=0.8)
+    ax.set_xlabel("mean lift over embedding-only")
+    ax.set_title("Does cheap side-data help under family shift?")
+    fig.text(
+        0.5,
+        -0.02,
+        "Source: paper/tables/35_fusion.csv (arm = embed+extra)",
+        ha="center",
+        fontsize=8.5,
+        color="#666666",
+    )
+    save(fig, "fusion_lift")
+
+
 def main():
     df = load()
     fig_schematic()
     fig_rank_sweep(df)
     fig_per_trait(df)
     fig_cosine_geometry()
+    fig_capacity_ladder()
+    fig_fusion_lift()
     print(
-        "wrote baseline_regressor_schematic / _rank_sweep / _per_trait "
-        "and enc_fig_cosine_geometry (.png + .pdf)"
+        "wrote baseline_regressor_schematic / _rank_sweep / _per_trait, "
+        "enc_fig_cosine_geometry, capacity_ladder, and fusion_lift (.png + .pdf)"
     )
 
 

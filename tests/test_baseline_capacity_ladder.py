@@ -50,3 +50,11 @@ def test_escalation_verdict_three_cases_plus_unknown():
     assert cl.escalation_verdict(0.80, 0.81, plateaued=True) == "NO — coverage-limited"
     assert cl.escalation_verdict(0.80, 0.95, plateaued=True) == "YES — capacity-limited"
     assert cl.escalation_verdict(0.80, float("nan"), plateaued=True) == "unknown"
+
+
+def test_load_ceilings_reads_knn_auroc(tmp_path):
+    csv = tmp_path / "s.csv"
+    csv.write_text("trait,knn_auroc,probe_auroc\nmotility,0.695,0.728\nsporulation,0.924,0.935\n")
+    c = cl.load_ceilings(csv)
+    assert abs(c["sporulation"] - 0.924) < 1e-9
+    assert abs(c["motility"] - 0.695) < 1e-9

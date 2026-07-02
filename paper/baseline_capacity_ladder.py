@@ -86,3 +86,65 @@ def escalation_verdict(plateau_value: float, ceiling: float, plateaued: bool,
     if ceiling is None or np.isnan(ceiling):
         return "unknown"
     return "NO — coverage-limited" if (ceiling - plateau_value) <= margin else "YES — capacity-limited"
+
+
+def load_ceilings(path: str | Path) -> dict[str, float]:
+    df = pd.read_csv(path)
+    return {str(t): float(v) for t, v in zip(df["trait"], df["knn_auroc"])}
+
+
+def _train_test_arrays(feats, df, target, seed):
+    sub = df[target.mask].copy()
+    y = target.y[target.mask]
+    is_train = (sub["fsplit"] == "train").to_numpy()
+    is_test = (sub["fsplit"] == "test").to_numpy()
+    if is_train.sum() == 0 or is_test.sum() == 0:
+        return None
+    if len(np.unique(y[is_train])) < 2 or len(np.unique(y[is_test])) < 2:
+        return None
+    return (
+        sub,
+        feats[sub["row"].to_numpy()[is_train]], y[is_train].astype(int),
+        feats[sub["row"].to_numpy()[is_test]], y[is_test].astype(int),
+    )
+
+
+def _score(x_train, y_train, x_test, y_test, model, rank, seed):
+    est = br.build_estimator(model, rank, x_train, seed)
+    prob = br.predict_probability(br.clone(est), x_train, y_train, x_test)
+    row = br.metrics_row(y_test, prob)
+    row["test_pos_rate"] = float(y_test.mean())
+    metric = br.primary_metric(row)
+    return metric, float(row[metric])
+
+
+def run_capacity_ladder(feats, df, targets, ceilings, seed):
+    rung_rows, summary_rows = [], []
+    for target in targets:
+        arr = _train_test_arrays(feats, df, target, seed)
+        if arr is None:
+            continue
+        _, x_train, y_train, x_test, y_test = arr
+        metrics, metric_name = [], None
+        for step, (model, rank) in enumerate(LADDER):
+            metric_name, value = _score(x_train, y_train, x_test, y_test, model, rank, seed)
+            metrics.append(value)
+            rung_rows.append({
+                "target": target.name, "group": target.group, "step": step,
+                "model": model, "rank": br.rank_label(rank),
+                "primary_metric": metric_name, "score": value,
+            })
+        pl = detect_plateau(metrics)
+        ceiling = ceilings.get(target.name, float("nan"))
+        verdict = escalation_verdict(pl["plateau_value"], ceiling, pl["plateaued"])
+        summary_rows.append({
+            "target": target.name, "group": target.group,
+            "primary_metric": metric_name,
+            "lower_bound": pl["lower_bound"],
+            "plateau_step": pl["plateau_index"],
+            "plateau_value": pl["plateau_value"],
+            "plateaued": pl["plateaued"],
+            "ceiling_knn_auroc": ceiling,
+            "verdict": verdict,
+        })
+    return rung_rows, summary_rows

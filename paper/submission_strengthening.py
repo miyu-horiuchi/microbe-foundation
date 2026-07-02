@@ -16,6 +16,7 @@ tables label that scope explicitly.
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 from collections import Counter, defaultdict
@@ -23,7 +24,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy import sparse
 from scipy.stats import spearmanr
+from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score, f1_score
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +37,7 @@ RUNS = ROOT / "runs"
 TRAITS_PATH = ROOT / "data" / "traits.parquet"
 SPLITS_PATH = ROOT / "data" / "splits.parquet"
 EGGNOG_FEATURES = ROOT / "data" / "eggnog_features_6738.npz"
+BENCHMARK_FEATURES = ROOT / "data" / "esm2_features.npz"
 
 
 COMPOSITIONAL = {
@@ -235,11 +239,68 @@ def diff_scores_multiclass(X: np.ndarray, y: np.ndarray) -> np.ndarray | None:
     return score
 
 
+def sparse_linear_localization(
+    X: np.ndarray,
+    y: np.ndarray,
+    split_values: np.ndarray,
+    *,
+    random_state: int = 0,
+) -> dict[str, float | int] | None:
+    """Fit an L1 sparse gene-family classifier on species-train genomes.
+
+    This is deliberately a diagnostic, not a production predictor: it asks
+    whether a trait can be explained by a small set of orthologous groups. The
+    coefficient concentration is the measured localization score.
+    """
+    train = split_values == "train"
+    test = split_values == "test"
+    if train.sum() < 50 or test.sum() < 20:
+        return None
+    train_classes, train_counts = np.unique(y[train], return_counts=True)
+    test_classes = np.unique(y[test])
+    if len(train_classes) < 2 or len(test_classes) < 2:
+        return None
+    # Very tiny classes create unstable sparse coefficients and noisy macro-F1.
+    if train_counts.min() < 10:
+        return None
+
+    Xs = sparse.csr_matrix(X)
+    clf = SGDClassifier(
+        loss="log",
+        penalty="l1",
+        alpha=1e-3,
+        class_weight="balanced",
+        max_iter=1000,
+        tol=1e-3,
+        random_state=random_state,
+        n_jobs=1,
+    )
+    clf.fit(Xs[train], y[train])
+    pred = clf.predict(Xs[test])
+    macro_f1 = f1_score(y[test], pred, average="macro", zero_division=0)
+    coefs = np.asarray(clf.coef_, dtype=np.float64)
+    scores = np.abs(coefs).sum(axis=0)
+    metrics = concentration_metrics(scores)
+    metrics.update(
+        {
+            "sparse_macro_f1": float(macro_f1),
+            "sparse_n_train": int(train.sum()),
+            "sparse_n_test": int(test.sum()),
+            "sparse_n_nonzero_coefficients": int((scores > 0).sum()),
+        }
+    )
+    return metrics
+
+
 def localization_table(pooling_df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     if not EGGNOG_FEATURES.exists():
         return pd.DataFrame(), "# Table 11 — Gene-family localization audit\n\n_(missing eggNOG feature matrix)_\n"
 
     traits_df = pd.read_parquet(TRAITS_PATH)
+    splits_df = pd.read_parquet(SPLITS_PATH)
+    traits_df = traits_df.merge(
+        splits_df[["bacdive_id", "species_split"]], on="bacdive_id", how="left"
+    )
     schema = json.loads((ROOT / "trait_schema.json").read_text())
 
     feature_npz = np.load(EGGNOG_FEATURES, allow_pickle=True)
@@ -263,21 +324,44 @@ def localization_table(pooling_df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
         h = spec["head"]
         col = traits_df.iloc[trait_rows][trait]
         scores = None
+        sparse_metrics = None
 
         if h == "binary":
             valid = col.notna().to_numpy()
             y = col[valid].astype(bool).astype(int).to_numpy()
             scores = diff_scores_binary(X[valid], y)
             n_labeled = int(valid.sum())
+            sparse_metrics = sparse_linear_localization(
+                X[valid],
+                y,
+                traits_df.iloc[trait_rows]["species_split"].to_numpy()[valid],
+            )
         elif h == "multiclass":
             valid = col.notna().to_numpy()
             y = pd.Categorical(col[valid].astype(str)).codes
             scores = diff_scores_multiclass(X[valid], y)
             n_labeled = int(valid.sum())
+            sparse_metrics = sparse_linear_localization(
+                X[valid],
+                y,
+                traits_df.iloc[trait_rows]["species_split"].to_numpy()[valid],
+            )
 
         if scores is None:
             continue
         metrics = concentration_metrics(scores)
+        if sparse_metrics:
+            for key in ("top10_share", "gini", "n80", "n_nonzero_features", "normalized_entropy"):
+                metrics[f"sparse_{key}"] = sparse_metrics[key]
+            for key in ("sparse_macro_f1", "sparse_n_train", "sparse_n_test", "sparse_n_nonzero_coefficients"):
+                metrics[key] = sparse_metrics[key]
+            metrics["localization_score"] = sparse_metrics["top10_share"]
+            metrics["localization_n80"] = sparse_metrics["n80"]
+            metrics["localization_source"] = "sparse_linear"
+        else:
+            metrics["localization_score"] = metrics["top10_share"]
+            metrics["localization_n80"] = metrics["n80"]
+            metrics["localization_source"] = "univariate"
         species_gain = pooling_df[
             (pooling_df["split"] == "species") & (pooling_df["trait"] == trait)
         ]["attention_gain"]
@@ -301,37 +385,42 @@ def localization_table(pooling_df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
         )
 
     df = pd.DataFrame(rows).sort_values("top10_share", ascending=False)
-    corr_df = df.dropna(subset=["top10_share", "species_attention_gain"])
+    corr_df = df.dropna(subset=["localization_score", "species_attention_gain"])
     rho, p = (math.nan, math.nan)
     if len(corr_df) >= 3:
-        rho, p = spearmanr(corr_df["top10_share"], corr_df["species_attention_gain"])
+        rho, p = spearmanr(corr_df["localization_score"], corr_df["species_attention_gain"])
 
     out = [
-        "# Table 11 — Gene-family localization audit",
+        "# Table 11 — Sparse gene-family localization audit",
         "",
         f"Audit feature matrix: `{EGGNOG_FEATURES.relative_to(ROOT)}` "
         f"({X.shape[0]:,} genomes × {X.shape[1]:,} eggNOG orthologous groups).",
         "",
-        "Localization proxy: for each scalar trait, compute a supervised "
-        "gene-family association vector from class-conditional feature-rate "
-        "differences, then measure how concentrated that vector is. `top10_share` "
-        "is the share of association mass carried by the ten strongest gene "
-        "families; `n80` is the number of gene families needed to reach 80% of "
-        "association mass. Multilabel and regression-vector heads are excluded "
-        "from this lightweight audit and should be handled by a heavier "
-        "per-output analysis in the main-track version.",
+        "Localization proxy: for each scalar trait, fit an L1-regularized "
+        "gene-family classifier on the species-train split, evaluate it on the "
+        "species-test split, then measure how concentrated the absolute "
+        "coefficient mass is. `localization_score` is the top-10 coefficient-mass "
+        "share when the sparse fit is stable; otherwise it falls back to the "
+        "univariate class-conditional association share. Multilabel and "
+        "regression-vector heads are excluded from this scalar audit.",
         "",
-        f"Spearman correlation between `top10_share` and species-level attention gain: "
+        f"Spearman correlation between `localization_score` and species-level attention gain: "
         f"rho = **{fmt(rho)}**, p = **{fmt(p)}** (n={len(corr_df)} traits).",
         "",
-        "| Trait | Class | Type | Audit labeled genomes | top10 share | Gini | n80 | Species Δ | Genus Δ | Family Δ |",
-        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| Trait | Class | Type | Source | Audit labels | Sparse train/test | Sparse macro-F1 | Localization | Sparse nonzero | n80 | Species Δ | Genus Δ | Family Δ |",
+        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for _, r in df.iterrows():
+    for _, r in df.sort_values("localization_score", ascending=False).iterrows():
+        sparse_train = r.get("sparse_n_train")
+        sparse_test = r.get("sparse_n_test")
+        train_test = "—" if pd.isna(sparse_train) or pd.isna(sparse_test) else f"{int(sparse_train):,}/{int(sparse_test):,}"
         out.append(
             f"| `{r['trait']}` | {r['trait_class']} | {r['head_type']} | "
-            f"{int(r['audit_labeled_genomes']):,} | {fmt(r['top10_share'])} | "
-            f"{fmt(r['gini'])} | {int(r['n80'])} | "
+            f"{r['localization_source']} | {int(r['audit_labeled_genomes']):,} | "
+            f"{train_test} | {fmt(r.get('sparse_macro_f1'))} | "
+            f"{fmt(r['localization_score'])} | "
+            f"{fmt(r.get('sparse_n_nonzero_coefficients'), 0)} | "
+            f"{int(r['localization_n80'])} | "
             f"{fmt(r['species_attention_gain'])} | {fmt(r['genus_attention_gain'])} | "
             f"{fmt(r['family_attention_gain'])} |"
         )
@@ -427,14 +516,94 @@ def taxonomy_baseline_table(pooling_df: pd.DataFrame) -> tuple[pd.DataFrame, str
     return out_df, "\n".join(out) + "\n"
 
 
+def matched_clade_control_table() -> tuple[pd.DataFrame, str]:
+    traits_df = pd.read_parquet(TRAITS_PATH)
+    splits_df = pd.read_parquet(SPLITS_PATH)
+    df = traits_df.merge(
+        splits_df[["bacdive_id", "family_split", "genus_split", "species_split"]],
+        on="bacdive_id",
+        how="inner",
+    )
+    if BENCHMARK_FEATURES.exists():
+        feature_ids = set(np.load(BENCHMARK_FEATURES, allow_pickle=True)["bacdive_ids"].astype(int).tolist())
+        df = df[df["bacdive_id"].astype(int).isin(feature_ids)].copy()
+
+    rows = []
+    target_traits = ["pathogenicity_animal", "pathogenicity_human"]
+    for trait in target_traits:
+        for split in ("species", "genus", "family"):
+            split_col = f"{split}_split"
+            train = df[df[split_col] == "train"]
+            test = df[df[split_col] == "test"]
+            test_valid = test[test[trait].notna()].copy()
+            n_test_total = len(test_valid)
+            for level in ("genus", "family"):
+                train_valid = train[train[trait].notna()].dropna(subset=[level]).copy()
+                if len(train_valid) == 0 or n_test_total == 0:
+                    continue
+                mixed = []
+                for val, group in train_valid.groupby(level):
+                    if group[trait].astype(bool).nunique() >= 2:
+                        mixed.append(val)
+                matched_test = test_valid[test_valid[level].isin(mixed)].copy()
+                y_true, y_pred = taxonomy_predictions(train, matched_test, trait, [level])
+                macro_f1 = (
+                    f1_score(y_true, y_pred, average="macro", zero_division=0)
+                    if len(y_true) >= 2 and len(set(y_true)) >= 2
+                    else math.nan
+                )
+                acc = accuracy_score(y_true, y_pred) if len(y_true) else math.nan
+                pos_rate = (
+                    float(pd.Series(y_true).astype(bool).mean()) if len(y_true) else math.nan
+                )
+                rows.append(
+                    {
+                        "trait": trait,
+                        "split": split,
+                        "matched_level": level,
+                        "n_test_labeled": n_test_total,
+                        "n_matched_test": len(matched_test),
+                        "matched_coverage": len(matched_test) / n_test_total if n_test_total else math.nan,
+                        "n_mixed_train_clades": len(mixed),
+                        "matched_positive_rate": pos_rate,
+                        "matched_taxonomy_acc": acc,
+                        "matched_taxonomy_macro_f1": macro_f1,
+                    }
+                )
+    out_df = pd.DataFrame(rows)
+    out = [
+        "# Table 13 — Within-clade matched pathogenicity control",
+        "",
+        "This diagnostic restricts pathogenicity evaluation to test genomes whose "
+        "genus or family is represented in training with both pathogenic and "
+        "non-pathogenic labeled examples. It asks how much matched evaluation "
+        "coverage exists after removing pure-clade shortcuts, and how strong a "
+        "same-clade majority baseline remains on that matched subset.",
+        "",
+        f"Benchmark alignment: `{BENCHMARK_FEATURES.relative_to(ROOT)}` feature IDs when available.",
+        "",
+        "| Trait | Split | Matched level | Test labels | Matched test | Coverage | Mixed train clades | Matched positive rate | Same-clade acc | Same-clade macro-F1 |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for _, r in out_df.sort_values(["trait", "split", "matched_level"]).iterrows():
+        out.append(
+            f"| `{r['trait']}` | {r['split']} | {r['matched_level']} | "
+            f"{int(r['n_test_labeled']):,} | {int(r['n_matched_test']):,} | "
+            f"{fmt(r['matched_coverage'])} | {int(r['n_mixed_train_clades']):,} | "
+            f"{fmt(r['matched_positive_rate'])} | {fmt(r['matched_taxonomy_acc'])} | "
+            f"{fmt(r['matched_taxonomy_macro_f1'])} |"
+        )
+    return out_df, "\n".join(out) + "\n"
+
+
 def write_localization_svg(df: pd.DataFrame) -> None:
-    plot = df.dropna(subset=["top10_share", "species_attention_gain"]).copy()
+    plot = df.dropna(subset=["localization_score", "species_attention_gain"]).copy()
     plot = plot[plot["head_type"] != "regression_vector"]
     width, height = 880, 430
     x0, y0, x1, y1 = 95, 345, 790, 65
     if len(plot) == 0:
         return
-    xmin, xmax = 0, float(plot["top10_share"].max()) * 1.18
+    xmin, xmax = 0, float(plot["localization_score"].max()) * 1.18
     ymin = min(-0.03, float(plot["species_attention_gain"].min()) * 1.1)
     ymax = max(0.10, float(plot["species_attention_gain"].max()) * 1.1)
 
@@ -465,8 +634,8 @@ def write_localization_svg(df: pd.DataFrame) -> None:
             "</g>",
             f'<line x1="{x0}" y1="{y0}" x2="{x1}" y2="{y0}" stroke="#c4c4c4"/>',
             f'<line x1="{x0}" y1="{y1}" x2="{x0}" y2="{y0}" stroke="#c4c4c4"/>',
-            '<text x="440" y="32" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="15" fill="#555" font-style="italic">preliminary gene-family localization audit tracks adaptive pooling gain</text>',
-            '<text x="440" y="397" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="11.5" fill="#888" letter-spacing=".04em">gene-family localization: top-10 association share</text>',
+            '<text x="440" y="32" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="15" fill="#555" font-style="italic">sparse gene-family localization audit tracks adaptive pooling gain</text>',
+            '<text x="440" y="397" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="11.5" fill="#888" letter-spacing=".04em">gene-family localization: top-10 coefficient share</text>',
             '<text x="30" y="205" transform="rotate(-90,30,205)" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="11.5" fill="#888" letter-spacing=".04em">species-level attention gain</text>',
         ]
     )
@@ -475,7 +644,7 @@ def write_localization_svg(df: pd.DataFrame) -> None:
         color = colors.get(cls, "#777")
         radius = 5.5 if cls == "machinery" else 4.5
         lines.append(
-            f'<circle cx="{sx(r["top10_share"]):.1f}" cy="{sy(r["species_attention_gain"]):.1f}" '
+            f'<circle cx="{sx(r["localization_score"]):.1f}" cy="{sy(r["species_attention_gain"]):.1f}" '
             f'r="{radius}" fill="{color}" stroke="#fff" stroke-width="1.2"/>'
         )
         if r["trait"] in {"pathogenicity_animal", "pathogenicity_human"}:
@@ -483,10 +652,10 @@ def write_localization_svg(df: pd.DataFrame) -> None:
             dx = -128 if r["trait"] == "pathogenicity_animal" else 8
             dy = 22 if r["trait"] == "pathogenicity_animal" else -6
             lines.append(
-                f'<text x="{sx(r["top10_share"]) + dx:.1f}" y="{sy(r["species_attention_gain"]) + dy:.1f}" '
+                f'<text x="{sx(r["localization_score"]) + dx:.1f}" y="{sy(r["species_attention_gain"]) + dy:.1f}" '
                 f'font-family="Helvetica,Arial,sans-serif" font-size="10.5" fill="{color}">{label}</text>'
             )
-    rho, p = spearmanr(plot["top10_share"], plot["species_attention_gain"]) if len(plot) >= 3 else (math.nan, math.nan)
+    rho, p = spearmanr(plot["localization_score"], plot["species_attention_gain"]) if len(plot) >= 3 else (math.nan, math.nan)
     lines.extend(
         [
             '<g font-family="Helvetica,Arial,sans-serif" font-size="11" fill="#555">',
@@ -523,6 +692,10 @@ def main() -> None:
     (TABLES / "12_taxonomy_baseline.md").write_text(taxonomy_md)
     taxonomy_df.to_csv(TABLES / "12_taxonomy_baseline.csv", index=False)
 
+    matched_df, matched_md = matched_clade_control_table()
+    (TABLES / "13_matched_clade_controls.md").write_text(matched_md)
+    matched_df.to_csv(TABLES / "13_matched_clade_controls.csv", index=False)
+
     print("wrote:")
     for path in [
         TABLES / "10_pooling_absolute_results.md",
@@ -531,6 +704,8 @@ def main() -> None:
         TABLES / "11_localization_gain.csv",
         TABLES / "12_taxonomy_baseline.md",
         TABLES / "12_taxonomy_baseline.csv",
+        TABLES / "13_matched_clade_controls.md",
+        TABLES / "13_matched_clade_controls.csv",
         FIGURES / "figure5_localization_gain.svg",
     ]:
         print(f"  {path.relative_to(ROOT)}")

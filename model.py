@@ -54,7 +54,7 @@ try:
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
-    from torch.utils.data import DataLoader, Dataset
+    from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 except ImportError:
     sys.exit("requires: pip install pandas pyarrow torch numpy")
 
@@ -297,7 +297,113 @@ class GatedAttentionPool(nn.Module):
         return (x * attn.unsqueeze(-1)).sum(dim=1)
 
 
-def make_pooler(name: str, input_dim: int, topk: int = 8) -> nn.Module:
+class _MAB(nn.Module):
+    """Multihead Attention Block (Set Transformer, Lee et al. 2019), mask-aware.
+
+    MAB(Q, K) = LayerNorm(H + rFF(H)), H = LayerNorm(Q_proj + Multihead(Q, K, K)).
+    `key_mask` ([B, Nk], 1=real, 0=padding) blocks attention onto padded keys, so
+    ragged protein sets pool correctly. Heads are folded into the batch dim.
+    """
+
+    def __init__(self, dim_q: int, dim_kv: int, dim_out: int, num_heads: int):
+        super().__init__()
+        if dim_out % num_heads != 0:
+            raise ValueError(f"dim_out={dim_out} not divisible by num_heads={num_heads}")
+        self.dim_out = dim_out
+        self.num_heads = num_heads
+        self.fc_q = nn.Linear(dim_q, dim_out)
+        self.fc_k = nn.Linear(dim_kv, dim_out)
+        self.fc_v = nn.Linear(dim_kv, dim_out)
+        self.fc_o = nn.Linear(dim_out, dim_out)
+        self.ln0 = nn.LayerNorm(dim_out)
+        self.ln1 = nn.LayerNorm(dim_out)
+
+    def forward(self, Q, K, key_mask=None, return_attn=False):
+        B = Q.shape[0]
+        Qp, Kp, Vp = self.fc_q(Q), self.fc_k(K), self.fc_v(K)
+        ds = self.dim_out // self.num_heads
+        Qh = torch.cat(Qp.split(ds, 2), 0)            # [H*B, Nq, ds]
+        Kh = torch.cat(Kp.split(ds, 2), 0)            # [H*B, Nk, ds]
+        Vh = torch.cat(Vp.split(ds, 2), 0)
+        scores = Qh.bmm(Kh.transpose(1, 2)) / math.sqrt(ds)   # [H*B, Nq, Nk]
+        if key_mask is not None:
+            km = key_mask.repeat(self.num_heads, 1).unsqueeze(1)  # [H*B, 1, Nk]
+            scores = scores.masked_fill(km == 0, float("-inf"))
+        attn = torch.nan_to_num(torch.softmax(scores, dim=2))     # guard all-pad rows
+        O = Qh + attn.bmm(Vh)
+        O = torch.cat(O.split(B, 0), 2)               # back to [B, Nq, dim_out]
+        O = self.ln0(O)
+        O = O + F.relu(self.fc_o(O))
+        O = self.ln1(O)
+        if return_attn:
+            # [H*B, Nq, Nk] -> mean over heads -> [B, Nq, Nk]
+            attn_bhn = attn.view(self.num_heads, B, attn.shape[1], attn.shape[2]).mean(0)
+            return O, attn_bhn
+        return O
+
+
+class _ISAB(nn.Module):
+    """Induced Set-Attention Block: O(P*m) self-attention via m inducing points.
+
+    Lets proteins attend to one another (through the inducing bottleneck) so the
+    representation can encode joint presence / interactions, unlike the weighted
+    sum of AttentionPool.
+    """
+
+    def __init__(self, dim: int, num_heads: int, num_inducing: int):
+        super().__init__()
+        self.inducing = nn.Parameter(torch.empty(1, num_inducing, dim))
+        nn.init.xavier_uniform_(self.inducing)
+        self.mab0 = _MAB(dim, dim, dim, num_heads)   # inducing points attend to proteins
+        self.mab1 = _MAB(dim, dim, dim, num_heads)   # proteins attend to inducing summary
+
+    def forward(self, X, mask):
+        I = self.inducing.expand(X.shape[0], -1, -1)
+        H = self.mab0(I, X, key_mask=mask)           # [B, m, dim]; proteins masked
+        return self.mab1(X, H)                        # [B, P, dim]
+
+
+class _PMA(nn.Module):
+    """Pooling by Multihead Attention: k seed vectors attend over the set."""
+
+    def __init__(self, dim: int, num_heads: int, num_seeds: int = 1):
+        super().__init__()
+        self.seeds = nn.Parameter(torch.empty(1, num_seeds, dim))
+        nn.init.xavier_uniform_(self.seeds)
+        self.mab = _MAB(dim, dim, dim, num_heads)
+
+    def forward(self, Z, mask, return_attn=False):
+        S = self.seeds.expand(Z.shape[0], -1, -1)
+        return self.mab(S, Z, key_mask=mask, return_attn=return_attn)
+
+
+class SetTransformerPool(nn.Module):
+    """Set Transformer pooler (1 ISAB + PMA, single seed) -> one genome vector.
+
+    Drop-in successor to AttentionPool specified in the manuscript (§6). Unlike a
+    weighted sum, ISAB lets proteins interact, so the genome vector can reflect
+    protein *combinations*. The PMA seed-to-protein attention is exposed via
+    `store_attn`/`last_attn` ([B, P]) so the §5 top-k attribution still works.
+    """
+
+    def __init__(self, dim: int, num_heads: int = 4, num_inducing: int = 16):
+        super().__init__()
+        self.isab = _ISAB(dim, num_heads, num_inducing)
+        self.pma = _PMA(dim, num_heads, num_seeds=1)
+        self.store_attn = False
+        self.last_attn: torch.Tensor | None = None
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        H = self.isab(x, mask)                        # [B, P, D]
+        if self.store_attn:
+            pooled, attn = self.pma(H, mask, return_attn=True)  # attn: [B, 1, P]
+            self.last_attn = attn.squeeze(1).detach()           # [B, P]
+            return pooled.squeeze(1)
+        return self.pma(H, mask).squeeze(1)           # [B, D]
+
+
+def make_pooler(name: str, input_dim: int, topk: int = 8,
+                st_heads: int = 4, st_inducing: int = 16) -> nn.Module:
     if name == "mean":
         return MeanProteinPool()
     if name == "max":
@@ -308,6 +414,8 @@ def make_pooler(name: str, input_dim: int, topk: int = 8) -> nn.Module:
         return AttentionPool(input_dim)
     if name == "gated_attention":
         return GatedAttentionPool(input_dim)
+    if name == "set_transformer":
+        return SetTransformerPool(input_dim, num_heads=st_heads, num_inducing=st_inducing)
     raise ValueError(f"unknown pooling mode: {name}")
 
 
@@ -322,12 +430,15 @@ class MicrobeFoundationModel(nn.Module):
 
     def __init__(self, input_dim: int, head_specs: dict[str, dict], hidden: int = 512,
                  dropout: float = 0.2, attention_pool: bool = False,
-                 pooling: str | None = None, topk: int = 8):
+                 pooling: str | None = None, topk: int = 8,
+                 st_heads: int = 4, st_inducing: int = 16):
         super().__init__()
         if attention_pool and pooling is None:
             pooling = "attention"
         self.pooling = pooling
-        self.pool = make_pooler(pooling, input_dim, topk=topk) if pooling else None
+        self.pool = (make_pooler(pooling, input_dim, topk=topk,
+                                 st_heads=st_heads, st_inducing=st_inducing)
+                     if pooling else None)
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden),
             nn.ReLU(),
@@ -594,6 +705,23 @@ def collate_perprotein(batch):
     return (padded, pmask), label_dict, mask_dict
 
 
+def family_sample_weights(families) -> "np.ndarray":
+    """Per-sample weights that equalize family representation in expectation.
+
+    Each genome gets weight 1 / (F * n_f), where n_f is its family's size and F
+    is the number of distinct families. A WeightedRandomSampler with these weights
+    draws every family with equal expected mass regardless of how many genomes it
+    has — directly counteracting the long-tailed family distribution that the
+    cross-clade diagnostic (Table 15) identified as the cause of family-test
+    collapse. Missing/None families are bucketed together as one group.
+    """
+    fam = np.array(["<NA>" if (f is None or (isinstance(f, float) and np.isnan(f))) else str(f)
+                    for f in families])
+    uniq, inv, counts = np.unique(fam, return_inverse=True, return_counts=True)
+    n_families = len(uniq)
+    return 1.0 / (n_families * counts[inv].astype(np.float64))
+
+
 def _model_forward(model, feats, device):
     """Run the model on a batch's feats, handling both the pre-pooled ([B,D]) and
     per-protein ((padded [B,P,D], mask [B,P])) cases."""
@@ -610,19 +738,25 @@ def _model_forward(model, feats, device):
 # =============================================================================
 
 
-def run_eval(model, loader, specs, device) -> dict[str, dict[str, float]]:
+def run_eval(model, loader, specs, device, forward_fn=None) -> dict[str, dict[str, float]]:
     """Compute per-head metrics on a split.
 
     Returns {head_name: {metric_kind: score, ...}}. binary/multiclass heads
     emit both `acc` and `f1` (macro for multiclass; positive-class for binary).
     Multilabel emits sample-averaged `f1`. Regression emits `rmse`.
+
+    `forward_fn(model, feats, device) -> preds` defaults to `_model_forward`
+    (precomputed-feature path). Pass a custom forward for models whose batch
+    `feats` are not plain tensors (e.g. tokenized sequences for an in-graph
+    encoder).
     """
+    forward_fn = forward_fn or _model_forward
     model.train(False)
     # Accumulators per head — list of (pred, true, mask) tensors.
     buf: dict[str, dict[str, list]] = {}
     with torch.no_grad():
         for feats, labels, masks in loader:
-            preds = _model_forward(model, feats, device)
+            preds = forward_fn(model, feats, device)
             for name, pred in preds.items():
                 spec = specs[name]
                 h = spec["head_type"]
@@ -635,8 +769,22 @@ def run_eval(model, loader, specs, device) -> dict[str, dict[str, float]]:
                 b["y"].append(y.detach().cpu())
                 b["m"].append(m.detach().cpu())
 
+    return metrics_from_buffers(buf, specs)
+
+
+def metrics_from_buffers(buf: dict, specs) -> dict[str, dict[str, float]]:
+    """Turn per-head accumulated (pred, y, mask) buffers into the metric dict.
+
+    `buf` maps head_name -> {"pred": [tensor, ...], "y": [...], "m": [...]} (the
+    exact structure run_eval accumulates). Factored out of run_eval so that a
+    distributed evaluator can all-gather every rank's buffers and call this on
+    the merged set -- guaranteeing the metric MATH is byte-identical to the
+    single-process path (just over the union of all shards).
+    """
     out: dict[str, dict[str, float]] = {}
     for name, b in buf.items():
+        if not b["pred"]:
+            continue
         h = specs[name]["head_type"]
         pred = torch.cat(b["pred"], dim=0)
         y = torch.cat(b["y"], dim=0)
@@ -780,6 +928,14 @@ def train(model, train_loader, val_loader, specs, device, epochs: int, lr: float
                 g["lr"] = lr_at(step)
             preds = _model_forward(model, feats, device)
             loss, _ = masked_loss(preds, labels, masks, specs, weights=class_weights)
+            # Guard: a batch in which every head has zero labeled samples yields a
+            # constant zero loss with no grad_fn (masked_loss returns tensor(0.0)).
+            # Calling backward() on it raises "element 0 ... does not require grad".
+            # This is rare but inevitable under family-balanced resampling, so skip
+            # such batches rather than letting them crash the whole run.
+            if loss.grad_fn is None or not loss.requires_grad:
+                step += 1
+                continue
             optim.zero_grad()
             loss.backward()
             optim.step()
@@ -810,11 +966,16 @@ def main() -> None:
     parser.add_argument("--per-protein", type=Path, default=None,
                         help="Directory of un-pooled per-protein embeddings (<bid>.npy + manifest.parquet) "
                              "from compute_esm2_perprotein_mp.py. Enables attention pooling. Overrides --features.")
-    parser.add_argument("--pooling", choices=["mean", "max", "topk", "attention", "gated_attention"],
+    parser.add_argument("--pooling",
+                        choices=["mean", "max", "topk", "attention", "gated_attention", "set_transformer"],
                         default="attention",
                         help="Pooling operator for --per-protein runs. Pre-pooled --features runs ignore this.")
     parser.add_argument("--topk", type=int, default=8,
                         help="Number of proteins to average in --pooling topk mode.")
+    parser.add_argument("--st-heads", type=int, default=4,
+                        help="Attention heads for --pooling set_transformer (must divide embed dim).")
+    parser.add_argument("--st-inducing", type=int, default=16,
+                        help="Number of inducing points for the set_transformer ISAB block.")
     parser.add_argument("--max-proteins", type=int, default=0,
                         help="With --per-protein, cap proteins per genome per batch (0 = no cap). Bounds GPU memory.")
     parser.add_argument("--split-level", choices=["species", "genus", "family"], default="family")
@@ -832,6 +993,11 @@ def main() -> None:
     parser.add_argument("--save-predictions", type=Path, default=None,
                         help="Write per-genome test predictions (bacdive_id,true_label,pred) to this parquet. "
                              "Requires exactly one binary head (use --single-task <trait>).")
+    parser.add_argument("--save-all-predictions", type=Path, default=None,
+                        help="Write per-genome probabilities for ALL binary heads on BOTH the val "
+                             "and test splits, long format (bacdive_id, split, trait, true_label, "
+                             "pred), to this parquet. Feeds checkpoint_retrieval.py (the real-system "
+                             "cross-clade blend). Unlike --save-predictions, no --single-task needed.")
     parser.add_argument("--save-model", type=Path, default=None,
                         help="Save the trained weights + rebuild config to this .pt path (for attention extraction)")
     parser.add_argument("--run-name", type=str, default="", help="Tag for the saved metrics (e.g., 'esm2-35M-family')")
@@ -848,6 +1014,11 @@ def main() -> None:
     parser.add_argument("--single-task", type=str, default="",
                         help="If set, train only the named head (all other heads dropped). "
                              "Useful for ablations: does multi-task interference hurt this trait?")
+    parser.add_argument("--balanced-families", action="store_true",
+                        help="Sample training genomes so every taxonomic family is drawn with "
+                             "equal expected frequency (WeightedRandomSampler). Counteracts the "
+                             "long-tailed family distribution behind family-test collapse (Table 15). "
+                             "Affects only the train split.")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -919,10 +1090,23 @@ def main() -> None:
         else:
             dataset = StrainDataset(features[idx_t], labels_sub, masks_sub)
             collate_fn = collate
+
+        sampler = None
+        shuffle = (split_name == "train")
+        if split_name == "train" and args.balanced_families:
+            fam = df.loc[idx, "family"].tolist()
+            w = family_sample_weights(fam)
+            sampler = WeightedRandomSampler(
+                torch.as_tensor(w, dtype=torch.double), num_samples=len(idx), replacement=True,
+            )
+            shuffle = False  # sampler and shuffle are mutually exclusive
+            print(f"  family-balanced sampling on train: {len(set(fam)):,} families over {len(idx):,} genomes")
+
         loaders[split_name] = DataLoader(
             dataset,
             batch_size=args.batch,
-            shuffle=(split_name == "train"),
+            shuffle=shuffle,
+            sampler=sampler,
             collate_fn=collate_fn,
             num_workers=args.num_workers,
             pin_memory=torch.cuda.is_available(),
@@ -932,7 +1116,8 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pooling = args.pooling if per_protein else None
     model = MicrobeFoundationModel(input_dim, specs, hidden=args.hidden, dropout=args.dropout,
-                                   pooling=pooling, topk=args.topk).to(device)
+                                   pooling=pooling, topk=args.topk,
+                                   st_heads=args.st_heads, st_inducing=args.st_inducing).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     pool_s = pooling or "pre-pooled"
     print(f"\nmodel: {n_params:,} parameters  (device={device}, pooling={pool_s})")
@@ -967,6 +1152,8 @@ def main() -> None:
         out = {
             "run_name": args.run_name or (args.features.name if args.features else "smoke"),
             "split_level": args.split_level,
+            "seed": args.seed,
+            "balanced_families": bool(args.balanced_families),
             "epochs": args.epochs,
             "n_params": n_params,
             "feature_dim": input_dim,
@@ -1004,6 +1191,32 @@ def main() -> None:
             frame.to_parquet(args.save_predictions)
             print(f"wrote {len(frame)} per-genome predictions ({head}) to {args.save_predictions}")
 
+    if args.save_all_predictions:
+        binary_heads = [n for n in specs if specs[n]["head_type"] == "binary"]
+        if not binary_heads:
+            print("--save-all-predictions: no binary heads to dump. Skipping.")
+        else:
+            rows = []
+            for split_name in ("val", "test"):
+                ldr = loaders.get(split_name)
+                if ldr is None:
+                    continue
+                # unshuffled loader -> order matches splits[split_name]
+                split_ids = df.loc[splits[split_name], "bacdive_id"].to_numpy()
+                for head in binary_heads:
+                    probs, trues, mask = collect_binary_predictions(model, ldr, specs, device, head)
+                    keep = np.asarray(mask).astype(bool)
+                    for bid, p, t in zip(split_ids[keep], probs[keep], trues[keep]):
+                        rows.append({
+                            "bacdive_id": int(bid), "split": split_name, "trait": head,
+                            "true_label": int(t), "pred": float(p),
+                        })
+            args.save_all_predictions.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(rows).to_parquet(args.save_all_predictions)
+            n_val = sum(1 for r in rows if r["split"] == "val")
+            print(f"wrote {len(rows)} predictions ({len(binary_heads)} binary heads, "
+                  f"{n_val} val / {len(rows) - n_val} test) to {args.save_all_predictions}")
+
     if args.save_model:
         # Everything needed to rebuild the model for attention extraction:
         # weights + the constructor args (head sizes, input_dim, pool flag).
@@ -1015,6 +1228,8 @@ def main() -> None:
             "attention_pool": per_protein,
             "pooling": pooling or "pre-pooled",
             "topk": args.topk,
+            "st_heads": args.st_heads,
+            "st_inducing": args.st_inducing,
             "head_sizes": {name: int(head.out_features) for name, head in model.heads.items()},
             "split_level": args.split_level,
             "seed": args.seed,

@@ -112,6 +112,70 @@ code, pre { font-family: var(--mono) !important; }
 .stTextInput input, .stTextArea textarea, .stNumberInput input { font-family: var(--sans) !important; border:1px solid var(--rule) !important; border-radius:0 !important; background:rgba(255,255,255,.5) !important; color:var(--ink) !important; }
 .stTextInput label, .stTextArea label, .stFileUploader label, .stSelectbox label, .stSlider label, .stCheckbox label { font-family:var(--mono) !important; font-size:11px !important; color:var(--ink-soft) !important; letter-spacing:.05em; text-transform:uppercase; }
 [data-testid="stFileUploader"] section { background:rgba(255,255,255,.4) !important; border:1px dashed var(--rule) !important; border-radius:0 !important; padding:12px !important; }
+[data-testid="stFileUploaderDropzone"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 20px !important;
+  min-height: 58px !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] {
+  display: flex !important;
+  align-items: center !important;
+  min-width: 0 !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] > span,
+[data-testid="stFileUploaderDropzoneInstructions"] p {
+  display: none !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] > div {
+  display: flex !important;
+  align-items: center !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] div:not(:has(small)),
+[data-testid="stFileUploaderDropzoneInstructions"] span:not(:has(small)),
+[data-testid="stFileUploaderDropzoneInstructions"] p:not(:has(small)) {
+  display: none !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] small {
+  display: block !important;
+  margin: 0 !important;
+  font-size: 14px !important;
+  color: var(--ink-faint) !important;
+  white-space: nowrap !important;
+}
+[data-testid="stFileUploader"] section button,
+[data-testid="stFileUploader"] section [role="button"] {
+  min-width: 118px !important;
+  width: auto !important;
+  height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  position: relative !important;
+}
+[data-testid="stFileUploader"] section button::after,
+[data-testid="stFileUploader"] section [role="button"]::after {
+  content: "Choose file";
+  color: var(--ink) !important;
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  letter-spacing: .02em !important;
+}
+[data-testid="stFileUploader"] section button *,
+[data-testid="stFileUploader"] section [role="button"] * {
+  display: none !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+[data-testid="stFileUploader"] section small {
+  white-space: nowrap !important;
+}
 .stButton > button, .stDownloadButton > button { font-family:var(--mono) !important; font-size:12px !important; font-weight:400 !important; border-radius:2px !important; border:1px solid var(--rule) !important; background:transparent !important; color:var(--ink) !important; letter-spacing:.02em; padding:6px 12px !important; box-shadow:none !important; }
 .stButton > button:hover, .stDownloadButton > button:hover { border-color:var(--ink) !important; background:rgba(0,0,0,.04) !important; color:var(--ink) !important; }
 .stButton > button[kind="primary"] { background:var(--ink) !important; color:var(--paper) !important; border-color:var(--ink) !important; }

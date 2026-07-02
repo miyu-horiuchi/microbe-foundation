@@ -1,0 +1,225 @@
+{
+  "run_name": "lora_family_s0",
+  "mode": "lora",
+  "model_name": "facebook/esm2_t30_150M_UR50D",
+  "split_level": "family",
+  "seed": 0,
+  "pooling": "set_transformer",
+  "lora_r": 16,
+  "n_train": 11600,
+  "n_test": 3807,
+  "n_trainable_params": 7385253,
+  "n_total_params": 155524094,
+  "avg_primary": 0.5794658041767005,
+  "per_head": {
+    "gram_stain": {
+      "metric_kind": "acc",
+      "score": 0.6962025165557861,
+      "metrics": {
+        "acc": 0.6962025165557861,
+        "f1": 0.27363184079601993
+      },
+      "head_type": "multiclass",
+      "head_size": 3
+    },
+    "cell_shape": {
+      "metric_kind": "acc",
+      "score": 0.8197879791259766,
+      "metrics": {
+        "acc": 0.8197879791259766,
+        "f1": 0.12871012482662966
+      },
+      "head_type": "multiclass",
+      "head_size": 7
+    },
+    "motility": {
+      "metric_kind": "acc",
+      "score": 0.3633633553981781,
+      "metrics": {
+        "acc": 0.3633633553981781,
+        "f1": 0.5330396475770925
+      },
+      "head_type": "binary",
+      "head_size": 1
+    },
+    "pigmentation": {
+      "metric_kind": "acc",
+      "score": 0.7371202111244202,
+      "metrics": {
+        "acc": 0.7371202111244202,
+        "f1": 0.8486692015209125
+      },
+      "head_type": "binary",
+      "head_size": 1
+    },
+    "oxygen_tolerance": {
+      "metric_kind": "acc",
+      "score": 0.8544949293136597,
+      "metrics": {
+        "acc": 0.8544949293136597,
+        "f1": 0.15358987173080127
+      },
+      "head_type": "multiclass",
+      "head_size": 6
+    },
+    "catalase": {
+      "metric_kind": "acc",
+      "score": 0.818371593952179,
+      "metrics": {
+        "acc": 0.818371593952179,
+        "f1": 0.9001148105625718
+      },
+      "head_type": "binary",
+      "head_size": 1
+    },
+    "cytochrome_oxidase": {
+      "metric_kind": "acc",
+      "score": 0.6748329401016235,
+      "metrics": {
+        "acc": 0.6748329401016235,
+        "f1": 0.8058510638297872
+      },
+      "head_type": "binary",
+      "head_size": 1
+    },
+    "halophily": {
+      "metric_kind": "acc",
+      "score": 0.5855777859687805,
+      "metrics": {
+        "acc": 0.5855777859687805,
+        "f1": 0.18465753424657536
+      },
+      "head_type": "multiclass",
+      "head_size": 4
+    },
+    "temperature_class": {
+      "metric_kind": "acc",
+      "score": 0.9075281620025635,
+      "metrics": {
+        "acc": 0.9075281620025635,
+        "f1": 0.19030453697949037
+      },
+      "head_type": "multiclass",
+      "head_size": 5
+    },
+    "ph_class": {
+      "metric_kind": "acc",
+      "score": 0.5784148573875427,
+      "metrics": {
+        "acc": 0.5784148573875427,
+        "f1": 0.24430199430199429
+      },
+      "head_type": "multiclass",
+      "head_size": 3
+    },
+    "cultivation_medium": {
+      "metric_kind": "f1",
+      "score": 0.08047940629694639,
+      "metrics": {
+        "f1": 0.08047940629694639,
+        "f1_macro": 0.0012527770595625043
+      },
+      "head_type": "multilabel",
+      "head_size": 200
+    },
+    "carbon_utilization": {
+      "metric_kind": "f1",
+      "score": 0.5210337581293759,
+      "metrics": {
+        "f1": 0.5210337581293759,
+        "f1_macro": 0.3340492248535156
+      },
+      "head_type": "multilabel",
+      "head_size": 80
+    },
+    "metabolite_production": {
+      "metric_kind": "f1",
+      "score": 0.08168616088696937,
+      "metrics": {
+        "f1": 0.08168616088696937,
+        "f1_macro": 0.6680921912193298
+      },
+      "head_type": "multilabel",
+      "head_size": 50
+    },
+    "amr_phenotype": {
+      "metric_kind": "f1",
+      "score": 0.4044272464776189,
+      "metrics": {
+        "f1": 0.4044272464776189,
+        "f1_macro": 0.3940013349056244
+      },
+      "head_type": "multilabel",
+      "head_size": 30
+    },
+    "biosafety_level": {
+      "metric_kind": "acc",
+      "score": 0.8861995935440063,
+      "metrics": {
+        "acc": 0.8861995935440063,
+        "f1": 0.469833408374606
+      },
+      "head_type": "multiclass",
+      "head_size": 4
+    },
+    "pathogenicity_human": {
+      "metric_kind": "acc",
+      "score": 0.9386332035064697,
+      "metrics": {
+        "acc": 0.9386332035064697,
+        "f1": 0.0
+      },
+      "head_type": "binary",
+      "head_size": 1
+    },
+    "pathogenicity_animal": {
+      "metric_kind": "acc",
+      "score": 0.9556581974029541,
+      "metrics": {
+        "acc": 0.9556581974029541,
+        "f1": 0.0
+      },
+      "head_type": "binary",
+      "head_size": 1
+    },
+    "country": {
+      "metric_kind": "acc",
+      "score": 0.03411804884672165,
+      "metrics": {
+        "acc": 0.03411804884672165,
+        "f1": 0.0008046929693975263
+      },
+      "head_type": "multiclass",
+      "head_size": 100
+    },
+    "fatty_acid_profile": {
+      "metric_kind": "rmse",
+      "score": 0.10582196055261342,
+      "metrics": {
+        "rmse": 0.10582196055261342
+      },
+      "head_type": "regression_vector",
+      "head_size": 30
+    },
+    "sporulation": {
+      "metric_kind": "acc",
+      "score": 0.746583878993988,
+      "metrics": {
+        "acc": 0.746583878993988,
+        "f1": 0.0
+      },
+      "head_type": "binary",
+      "head_size": 1
+    },
+    "isolation_source": {
+      "metric_kind": "acc",
+      "score": 0.378446102142334,
+      "metrics": {
+        "acc": 0.378446102142334,
+        "f1": 0.04223776223776224
+      },
+      "head_type": "multiclass",
+      "head_size": 20
+    }
+  }
+}

@@ -1,0 +1,2851 @@
+{
+  "schema_version": "0.1.0",
+  "n_strains_basis": 100866,
+  "vocabularies": {
+    "cultivation_medium": {
+      "size": 200,
+      "n_labeled_strains": 28637,
+      "n_unique_in_data": 1351,
+      "items": [
+        {
+          "value": "65",
+          "n_strains": 3789,
+          "frac": 0.1323
+        },
+        {
+          "value": "92",
+          "n_strains": 3054,
+          "frac": 0.1066
+        },
+        {
+          "value": "9",
+          "n_strains": 2850,
+          "frac": 0.0995
+        },
+        {
+          "value": "693",
+          "n_strains": 2571,
+          "frac": 0.0898
+        },
+        {
+          "value": "1",
+          "n_strains": 2485,
+          "frac": 0.0868
+        },
+        {
+          "value": "514",
+          "n_strains": 2475,
+          "frac": 0.0864
+        },
+        {
+          "value": "830",
+          "n_strains": 2088,
+          "frac": 0.0729
+        },
+        {
+          "value": "535",
+          "n_strains": 1899,
+          "frac": 0.0663
+        },
+        {
+          "value": "84",
+          "n_strains": 1477,
+          "frac": 0.0516
+        },
+        {
+          "value": "220",
+          "n_strains": 1472,
+          "frac": 0.0514
+        },
+        {
+          "value": "104",
+          "n_strains": 745,
+          "frac": 0.026
+        },
+        {
+          "value": "252",
+          "n_strains": 640,
+          "frac": 0.0223
+        },
+        {
+          "value": "381",
+          "n_strains": 541,
+          "frac": 0.0189
+        },
+        {
+          "value": "11",
+          "n_strains": 526,
+          "frac": 0.0184
+        },
+        {
+          "value": "553",
+          "n_strains": 458,
+          "frac": 0.016
+        },
+        {
+          "value": "215",
+          "n_strains": 438,
+          "frac": 0.0153
+        },
+        {
+          "value": "554",
+          "n_strains": 407,
+          "frac": 0.0142
+        },
+        {
+          "value": "645",
+          "n_strains": 338,
+          "frac": 0.0118
+        },
+        {
+          "value": "110",
+          "n_strains": 323,
+          "frac": 0.0113
+        },
+        {
+          "value": "1203",
+          "n_strains": 274,
+          "frac": 0.0096
+        },
+        {
+          "value": "78",
+          "n_strains": 265,
+          "frac": 0.0093
+        },
+        {
+          "value": "545",
+          "n_strains": 235,
+          "frac": 0.0082
+        },
+        {
+          "value": "58",
+          "n_strains": 222,
+          "frac": 0.0078
+        },
+        {
+          "value": "339",
+          "n_strains": 208,
+          "frac": 0.0073
+        },
+        {
+          "value": "987",
+          "n_strains": 182,
+          "frac": 0.0064
+        },
+        {
+          "value": "83",
+          "n_strains": 178,
+          "frac": 0.0062
+        },
+        {
+          "value": "354",
+          "n_strains": 178,
+          "frac": 0.0062
+        },
+        {
+          "value": "457",
+          "n_strains": 162,
+          "frac": 0.0057
+        },
+        {
+          "value": "98",
+          "n_strains": 157,
+          "frac": 0.0055
+        },
+        {
+          "value": "31",
+          "n_strains": 154,
+          "frac": 0.0054
+        },
+        {
+          "value": "53",
+          "n_strains": 152,
+          "frac": 0.0053
+        },
+        {
+          "value": "1076",
+          "n_strains": 140,
+          "frac": 0.0049
+        },
+        {
+          "value": "429",
+          "n_strains": 131,
+          "frac": 0.0046
+        },
+        {
+          "value": "81",
+          "n_strains": 121,
+          "frac": 0.0042
+        },
+        {
+          "value": "585",
+          "n_strains": 112,
+          "frac": 0.0039
+        },
+        {
+          "value": "372",
+          "n_strains": 111,
+          "frac": 0.0039
+        },
+        {
+          "value": "428",
+          "n_strains": 108,
+          "frac": 0.0038
+        },
+        {
+          "value": "1611",
+          "n_strains": 106,
+          "frac": 0.0037
+        },
+        {
+          "value": "426",
+          "n_strains": 100,
+          "frac": 0.0035
+        },
+        {
+          "value": "63",
+          "n_strains": 97,
+          "frac": 0.0034
+        },
+        {
+          "value": "214",
+          "n_strains": 93,
+          "frac": 0.0032
+        },
+        {
+          "value": "27",
+          "n_strains": 90,
+          "frac": 0.0031
+        },
+        {
+          "value": "54",
+          "n_strains": 79,
+          "frac": 0.0028
+        },
+        {
+          "value": "119",
+          "n_strains": 79,
+          "frac": 0.0028
+        },
+        {
+          "value": "141",
+          "n_strains": 74,
+          "frac": 0.0026
+        },
+        {
+          "value": "67",
+          "n_strains": 68,
+          "frac": 0.0024
+        },
+        {
+          "value": "465",
+          "n_strains": 64,
+          "frac": 0.0022
+        },
+        {
+          "value": "195",
+          "n_strains": 64,
+          "frac": 0.0022
+        },
+        {
+          "value": "641",
+          "n_strains": 61,
+          "frac": 0.0021
+        },
+        {
+          "value": "464",
+          "n_strains": 60,
+          "frac": 0.0021
+        },
+        {
+          "value": "1560",
+          "n_strains": 60,
+          "frac": 0.0021
+        },
+        {
+          "value": "621",
+          "n_strains": 56,
+          "frac": 0.002
+        },
+        {
+          "value": "907",
+          "n_strains": 56,
+          "frac": 0.002
+        },
+        {
+          "value": "28",
+          "n_strains": 53,
+          "frac": 0.0019
+        },
+        {
+          "value": "503",
+          "n_strains": 49,
+          "frac": 0.0017
+        },
+        {
+          "value": "441",
+          "n_strains": 49,
+          "frac": 0.0017
+        },
+        {
+          "value": "736",
+          "n_strains": 48,
+          "frac": 0.0017
+        },
+        {
+          "value": "120",
+          "n_strains": 47,
+          "frac": 0.0016
+        },
+        {
+          "value": "219",
+          "n_strains": 47,
+          "frac": 0.0016
+        },
+        {
+          "value": "1593",
+          "n_strains": 43,
+          "frac": 0.0015
+        },
+        {
+          "value": "548",
+          "n_strains": 42,
+          "frac": 0.0015
+        },
+        {
+          "value": "105",
+          "n_strains": 41,
+          "frac": 0.0014
+        },
+        {
+          "value": "1159",
+          "n_strains": 41,
+          "frac": 0.0014
+        },
+        {
+          "value": "453",
+          "n_strains": 40,
+          "frac": 0.0014
+        },
+        {
+          "value": "7",
+          "n_strains": 40,
+          "frac": 0.0014
+        },
+        {
+          "value": "948",
+          "n_strains": 40,
+          "frac": 0.0014
+        },
+        {
+          "value": "383",
+          "n_strains": 40,
+          "frac": 0.0014
+        },
+        {
+          "value": "330",
+          "n_strains": 40,
+          "frac": 0.0014
+        },
+        {
+          "value": "804",
+          "n_strains": 40,
+          "frac": 0.0014
+        },
+        {
+          "value": "402",
+          "n_strains": 39,
+          "frac": 0.0014
+        },
+        {
+          "value": "248",
+          "n_strains": 39,
+          "frac": 0.0014
+        },
+        {
+          "value": "531",
+          "n_strains": 38,
+          "frac": 0.0013
+        },
+        {
+          "value": "3",
+          "n_strains": 38,
+          "frac": 0.0013
+        },
+        {
+          "value": "462",
+          "n_strains": 37,
+          "frac": 0.0013
+        },
+        {
+          "value": "1484",
+          "n_strains": 37,
+          "frac": 0.0013
+        },
+        {
+          "value": "513",
+          "n_strains": 36,
+          "frac": 0.0013
+        },
+        {
+          "value": "1523",
+          "n_strains": 36,
+          "frac": 0.0013
+        },
+        {
+          "value": "194",
+          "n_strains": 35,
+          "frac": 0.0012
+        },
+        {
+          "value": "311",
+          "n_strains": 34,
+          "frac": 0.0012
+        },
+        {
+          "value": "360",
+          "n_strains": 33,
+          "frac": 0.0012
+        },
+        {
+          "value": "123",
+          "n_strains": 33,
+          "frac": 0.0012
+        },
+        {
+          "value": "250",
+          "n_strains": 33,
+          "frac": 0.0012
+        },
+        {
+          "value": "785",
+          "n_strains": 32,
+          "frac": 0.0011
+        },
+        {
+          "value": "993",
+          "n_strains": 32,
+          "frac": 0.0011
+        },
+        {
+          "value": "232",
+          "n_strains": 32,
+          "frac": 0.0011
+        },
+        {
+          "value": "878",
+          "n_strains": 30,
+          "frac": 0.001
+        },
+        {
+          "value": "760",
+          "n_strains": 30,
+          "frac": 0.001
+        },
+        {
+          "value": "1592",
+          "n_strains": 30,
+          "frac": 0.001
+        },
+        {
+          "value": "714",
+          "n_strains": 29,
+          "frac": 0.001
+        },
+        {
+          "value": "595",
+          "n_strains": 28,
+          "frac": 0.001
+        },
+        {
+          "value": "231",
+          "n_strains": 28,
+          "frac": 0.001
+        },
+        {
+          "value": "1426",
+          "n_strains": 27,
+          "frac": 0.0009
+        },
+        {
+          "value": "634",
+          "n_strains": 27,
+          "frac": 0.0009
+        },
+        {
+          "value": "246",
+          "n_strains": 26,
+          "frac": 0.0009
+        },
+        {
+          "value": "1027",
+          "n_strains": 26,
+          "frac": 0.0009
+        },
+        {
+          "value": "640",
+          "n_strains": 25,
+          "frac": 0.0009
+        },
+        {
+          "value": "1240",
+          "n_strains": 25,
+          "frac": 0.0009
+        },
+        {
+          "value": "605",
+          "n_strains": 24,
+          "frac": 0.0008
+        },
+        {
+          "value": "942",
+          "n_strains": 24,
+          "frac": 0.0008
+        },
+        {
+          "value": "88",
+          "n_strains": 24,
+          "frac": 0.0008
+        },
+        {
+          "value": "255",
+          "n_strains": 23,
+          "frac": 0.0008
+        },
+        {
+          "value": "852",
+          "n_strains": 23,
+          "frac": 0.0008
+        },
+        {
+          "value": "142",
+          "n_strains": 23,
+          "frac": 0.0008
+        },
+        {
+          "value": "600",
+          "n_strains": 23,
+          "frac": 0.0008
+        },
+        {
+          "value": "1193",
+          "n_strains": 22,
+          "frac": 0.0008
+        },
+        {
+          "value": "403",
+          "n_strains": 22,
+          "frac": 0.0008
+        },
+        {
+          "value": "6",
+          "n_strains": 21,
+          "frac": 0.0007
+        },
+        {
+          "value": "825",
+          "n_strains": 21,
+          "frac": 0.0007
+        },
+        {
+          "value": "461",
+          "n_strains": 20,
+          "frac": 0.0007
+        },
+        {
+          "value": "1040",
+          "n_strains": 20,
+          "frac": 0.0007
+        },
+        {
+          "value": "371",
+          "n_strains": 20,
+          "frac": 0.0007
+        },
+        {
+          "value": "221",
+          "n_strains": 20,
+          "frac": 0.0007
+        },
+        {
+          "value": "1618",
+          "n_strains": 20,
+          "frac": 0.0007
+        },
+        {
+          "value": "193",
+          "n_strains": 19,
+          "frac": 0.0007
+        },
+        {
+          "value": "1504",
+          "n_strains": 19,
+          "frac": 0.0007
+        },
+        {
+          "value": "1677",
+          "n_strains": 19,
+          "frac": 0.0007
+        },
+        {
+          "value": "1166",
+          "n_strains": 18,
+          "frac": 0.0006
+        },
+        {
+          "value": "144",
+          "n_strains": 18,
+          "frac": 0.0006
+        },
+        {
+          "value": "1011",
+          "n_strains": 18,
+          "frac": 0.0006
+        },
+        {
+          "value": "97",
+          "n_strains": 18,
+          "frac": 0.0006
+        },
+        {
+          "value": "960",
+          "n_strains": 18,
+          "frac": 0.0006
+        },
+        {
+          "value": "411",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "377",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "1015",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "656",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "1241",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "1494",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "61",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "1673",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "1715",
+          "n_strains": 17,
+          "frac": 0.0006
+        },
+        {
+          "value": "520",
+          "n_strains": 16,
+          "frac": 0.0006
+        },
+        {
+          "value": "86",
+          "n_strains": 16,
+          "frac": 0.0006
+        },
+        {
+          "value": "924",
+          "n_strains": 16,
+          "frac": 0.0006
+        },
+        {
+          "value": "1678",
+          "n_strains": 16,
+          "frac": 0.0006
+        },
+        {
+          "value": "1052",
+          "n_strains": 15,
+          "frac": 0.0005
+        },
+        {
+          "value": "37",
+          "n_strains": 15,
+          "frac": 0.0005
+        },
+        {
+          "value": "163",
+          "n_strains": 15,
+          "frac": 0.0005
+        },
+        {
+          "value": "298",
+          "n_strains": 15,
+          "frac": 0.0005
+        },
+        {
+          "value": "1122",
+          "n_strains": 15,
+          "frac": 0.0005
+        },
+        {
+          "value": "550",
+          "n_strains": 15,
+          "frac": 0.0005
+        },
+        {
+          "value": "882",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "115",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "452",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "549",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "463",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "76",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "172",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "1536",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "282",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "82",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "80",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "658",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "630",
+          "n_strains": 14,
+          "frac": 0.0005
+        },
+        {
+          "value": "593",
+          "n_strains": 13,
+          "frac": 0.0005
+        },
+        {
+          "value": "111",
+          "n_strains": 13,
+          "frac": 0.0005
+        },
+        {
+          "value": "925",
+          "n_strains": 13,
+          "frac": 0.0005
+        },
+        {
+          "value": "1669",
+          "n_strains": 13,
+          "frac": 0.0005
+        },
+        {
+          "value": "628",
+          "n_strains": 13,
+          "frac": 0.0005
+        },
+        {
+          "value": "1113",
+          "n_strains": 13,
+          "frac": 0.0005
+        },
+        {
+          "value": "1266",
+          "n_strains": 13,
+          "frac": 0.0005
+        },
+        {
+          "value": "29",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "904",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "504",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "1058",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "382",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "704",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "829",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "1031",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "1629",
+          "n_strains": 12,
+          "frac": 0.0004
+        },
+        {
+          "value": "1081",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "586",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "877",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "1302",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "425",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "91",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "507",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "136",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "1054",
+          "n_strains": 11,
+          "frac": 0.0004
+        },
+        {
+          "value": "1429",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "269",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "666",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "500",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "217",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "898",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "122",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "436",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "1091",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "1279",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "921",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "1261",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "1153",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "1713",
+          "n_strains": 10,
+          "frac": 0.0003
+        },
+        {
+          "value": "1190",
+          "n_strains": 9,
+          "frac": 0.0003
+        },
+        {
+          "value": "1029",
+          "n_strains": 9,
+          "frac": 0.0003
+        },
+        {
+          "value": "438",
+          "n_strains": 9,
+          "frac": 0.0003
+        },
+        {
+          "value": "1004",
+          "n_strains": 9,
+          "frac": 0.0003
+        },
+        {
+          "value": "1167",
+          "n_strains": 9,
+          "frac": 0.0003
+        },
+        {
+          "value": "413",
+          "n_strains": 9,
+          "frac": 0.0003
+        },
+        {
+          "value": "240",
+          "n_strains": 9,
+          "frac": 0.0003
+        },
+        {
+          "value": "1200",
+          "n_strains": 9,
+          "frac": 0.0003
+        }
+      ]
+    },
+    "carbon_utilization": {
+      "size": 80,
+      "n_labeled_strains": 30313,
+      "n_unique_in_data": 931,
+      "items": [
+        {
+          "value": "maltose",
+          "n_strains": 21401,
+          "frac": 0.706
+        },
+        {
+          "value": "nitrate",
+          "n_strains": 21144,
+          "frac": 0.6975
+        },
+        {
+          "value": "sucrose",
+          "n_strains": 19810,
+          "frac": 0.6535
+        },
+        {
+          "value": "d-glucose",
+          "n_strains": 19747,
+          "frac": 0.6514
+        },
+        {
+          "value": "d-mannitol",
+          "n_strains": 19745,
+          "frac": 0.6514
+        },
+        {
+          "value": "urea",
+          "n_strains": 17719,
+          "frac": 0.5845
+        },
+        {
+          "value": "esculin",
+          "n_strains": 17692,
+          "frac": 0.5836
+        },
+        {
+          "value": "l-arabinose",
+          "n_strains": 17468,
+          "frac": 0.5763
+        },
+        {
+          "value": "lactose",
+          "n_strains": 14903,
+          "frac": 0.4916
+        },
+        {
+          "value": "d-mannose",
+          "n_strains": 14644,
+          "frac": 0.4831
+        },
+        {
+          "value": "raffinose",
+          "n_strains": 14501,
+          "frac": 0.4784
+        },
+        {
+          "value": "arginine",
+          "n_strains": 14136,
+          "frac": 0.4663
+        },
+        {
+          "value": "trehalose",
+          "n_strains": 13894,
+          "frac": 0.4584
+        },
+        {
+          "value": "melibiose",
+          "n_strains": 13608,
+          "frac": 0.4489
+        },
+        {
+          "value": "d-ribose",
+          "n_strains": 12670,
+          "frac": 0.418
+        },
+        {
+          "value": "gelatin",
+          "n_strains": 12611,
+          "frac": 0.416
+        },
+        {
+          "value": "n-acetylglucosamine",
+          "n_strains": 12591,
+          "frac": 0.4154
+        },
+        {
+          "value": "glycogen",
+          "n_strains": 12577,
+          "frac": 0.4149
+        },
+        {
+          "value": "d-arabitol",
+          "n_strains": 12065,
+          "frac": 0.398
+        },
+        {
+          "value": "tryptophan",
+          "n_strains": 11924,
+          "frac": 0.3934
+        },
+        {
+          "value": "myo-inositol",
+          "n_strains": 11923,
+          "frac": 0.3933
+        },
+        {
+          "value": "cellobiose",
+          "n_strains": 11650,
+          "frac": 0.3843
+        },
+        {
+          "value": "l-rhamnose",
+          "n_strains": 11254,
+          "frac": 0.3713
+        },
+        {
+          "value": "d-xylose",
+          "n_strains": 11171,
+          "frac": 0.3685
+        },
+        {
+          "value": "gluconate",
+          "n_strains": 10852,
+          "frac": 0.358
+        },
+        {
+          "value": "melezitose",
+          "n_strains": 10634,
+          "frac": 0.3508
+        },
+        {
+          "value": "d-tagatose",
+          "n_strains": 10348,
+          "frac": 0.3414
+        },
+        {
+          "value": "d-fructose",
+          "n_strains": 10066,
+          "frac": 0.3321
+        },
+        {
+          "value": "ribitol",
+          "n_strains": 9373,
+          "frac": 0.3092
+        },
+        {
+          "value": "l-arabitol",
+          "n_strains": 9016,
+          "frac": 0.2974
+        },
+        {
+          "value": "glycerol",
+          "n_strains": 8711,
+          "frac": 0.2874
+        },
+        {
+          "value": "starch",
+          "n_strains": 8711,
+          "frac": 0.2874
+        },
+        {
+          "value": "amygdalin",
+          "n_strains": 8586,
+          "frac": 0.2832
+        },
+        {
+          "value": "d-sorbitol",
+          "n_strains": 8405,
+          "frac": 0.2773
+        },
+        {
+          "value": "citrate",
+          "n_strains": 8402,
+          "frac": 0.2772
+        },
+        {
+          "value": "sorbitol",
+          "n_strains": 8271,
+          "frac": 0.2729
+        },
+        {
+          "value": "salicin",
+          "n_strains": 8270,
+          "frac": 0.2728
+        },
+        {
+          "value": "turanose",
+          "n_strains": 8145,
+          "frac": 0.2687
+        },
+        {
+          "value": "xylitol",
+          "n_strains": 8054,
+          "frac": 0.2657
+        },
+        {
+          "value": "nitrite",
+          "n_strains": 7988,
+          "frac": 0.2635
+        },
+        {
+          "value": "d-galactose",
+          "n_strains": 7956,
+          "frac": 0.2625
+        },
+        {
+          "value": "l-fucose",
+          "n_strains": 7814,
+          "frac": 0.2578
+        },
+        {
+          "value": "inulin",
+          "n_strains": 7681,
+          "frac": 0.2534
+        },
+        {
+          "value": "erythritol",
+          "n_strains": 7627,
+          "frac": 0.2516
+        },
+        {
+          "value": "galactitol",
+          "n_strains": 7607,
+          "frac": 0.2509
+        },
+        {
+          "value": "d-fucose",
+          "n_strains": 7585,
+          "frac": 0.2502
+        },
+        {
+          "value": "potassium 5-ketogluconate",
+          "n_strains": 7575,
+          "frac": 0.2499
+        },
+        {
+          "value": "l-sorbose",
+          "n_strains": 7476,
+          "frac": 0.2466
+        },
+        {
+          "value": "d-arabinose",
+          "n_strains": 7472,
+          "frac": 0.2465
+        },
+        {
+          "value": "methyl alpha-d-glucopyranoside",
+          "n_strains": 7471,
+          "frac": 0.2465
+        },
+        {
+          "value": "l-xylose",
+          "n_strains": 7436,
+          "frac": 0.2453
+        },
+        {
+          "value": "gentiobiose",
+          "n_strains": 7396,
+          "frac": 0.244
+        },
+        {
+          "value": "methyl alpha-d-mannoside",
+          "n_strains": 7358,
+          "frac": 0.2427
+        },
+        {
+          "value": "methyl beta-d-xylopyranoside",
+          "n_strains": 7332,
+          "frac": 0.2419
+        },
+        {
+          "value": "d-lyxose",
+          "n_strains": 7319,
+          "frac": 0.2414
+        },
+        {
+          "value": "glucose",
+          "n_strains": 7012,
+          "frac": 0.2313
+        },
+        {
+          "value": "arbutin",
+          "n_strains": 6962,
+          "frac": 0.2297
+        },
+        {
+          "value": "ornithine",
+          "n_strains": 6873,
+          "frac": 0.2267
+        },
+        {
+          "value": "potassium 2-ketogluconate",
+          "n_strains": 6704,
+          "frac": 0.2212
+        },
+        {
+          "value": "hippurate",
+          "n_strains": 6472,
+          "frac": 0.2135
+        },
+        {
+          "value": "malate",
+          "n_strains": 5785,
+          "frac": 0.1908
+        },
+        {
+          "value": "adipate",
+          "n_strains": 4774,
+          "frac": 0.1575
+        },
+        {
+          "value": "decanoate",
+          "n_strains": 4680,
+          "frac": 0.1544
+        },
+        {
+          "value": "lysine",
+          "n_strains": 4509,
+          "frac": 0.1487
+        },
+        {
+          "value": "alpha-cyclodextrin",
+          "n_strains": 3917,
+          "frac": 0.1292
+        },
+        {
+          "value": "methyl beta-d-glucopyranoside",
+          "n_strains": 3915,
+          "frac": 0.1292
+        },
+        {
+          "value": "pullulan",
+          "n_strains": 3707,
+          "frac": 0.1223
+        },
+        {
+          "value": "arabinose",
+          "n_strains": 3649,
+          "frac": 0.1204
+        },
+        {
+          "value": "mannitol",
+          "n_strains": 3446,
+          "frac": 0.1137
+        },
+        {
+          "value": "xylose",
+          "n_strains": 3271,
+          "frac": 0.1079
+        },
+        {
+          "value": "l-glutamate",
+          "n_strains": 3026,
+          "frac": 0.0998
+        },
+        {
+          "value": "malonate",
+          "n_strains": 3000,
+          "frac": 0.099
+        },
+        {
+          "value": "fructose",
+          "n_strains": 2848,
+          "frac": 0.094
+        },
+        {
+          "value": "mannose",
+          "n_strains": 2520,
+          "frac": 0.0831
+        },
+        {
+          "value": "rhamnose",
+          "n_strains": 2184,
+          "frac": 0.072
+        },
+        {
+          "value": "tween 80",
+          "n_strains": 2171,
+          "frac": 0.0716
+        },
+        {
+          "value": "acetate",
+          "n_strains": 1994,
+          "frac": 0.0658
+        },
+        {
+          "value": "d-galacturonic acid",
+          "n_strains": 1856,
+          "frac": 0.0612
+        },
+        {
+          "value": "galactose",
+          "n_strains": 1747,
+          "frac": 0.0576
+        },
+        {
+          "value": "propionate",
+          "n_strains": 1651,
+          "frac": 0.0545
+        }
+      ]
+    },
+    "metabolite_production": {
+      "size": 50,
+      "n_labeled_strains": 23631,
+      "n_unique_in_data": 501,
+      "items": [
+        {
+          "value": "indole",
+          "n_strains": 18852,
+          "frac": 0.7978
+        },
+        {
+          "value": "acetoin",
+          "n_strains": 8515,
+          "frac": 0.3603
+        },
+        {
+          "value": "hydrogen sulfide",
+          "n_strains": 5301,
+          "frac": 0.2243
+        },
+        {
+          "value": "nitrite",
+          "n_strains": 1088,
+          "frac": 0.046
+        },
+        {
+          "value": "dinitrogen",
+          "n_strains": 822,
+          "frac": 0.0348
+        },
+        {
+          "value": "niacin",
+          "n_strains": 105,
+          "frac": 0.0044
+        },
+        {
+          "value": "acetone",
+          "n_strains": 79,
+          "frac": 0.0033
+        },
+        {
+          "value": "n-butanol",
+          "n_strains": 71,
+          "frac": 0.003
+        },
+        {
+          "value": "acetate",
+          "n_strains": 62,
+          "frac": 0.0026
+        },
+        {
+          "value": "polysaccharides",
+          "n_strains": 58,
+          "frac": 0.0025
+        },
+        {
+          "value": "sulfide",
+          "n_strains": 52,
+          "frac": 0.0022
+        },
+        {
+          "value": "melanin",
+          "n_strains": 50,
+          "frac": 0.0021
+        },
+        {
+          "value": "lactate",
+          "n_strains": 34,
+          "frac": 0.0014
+        },
+        {
+          "value": "ethanol",
+          "n_strains": 31,
+          "frac": 0.0013
+        },
+        {
+          "value": "dihydrogen",
+          "n_strains": 30,
+          "frac": 0.0013
+        },
+        {
+          "value": "carbon dioxide",
+          "n_strains": 25,
+          "frac": 0.0011
+        },
+        {
+          "value": "formate",
+          "n_strains": 23,
+          "frac": 0.001
+        },
+        {
+          "value": "bacteriochlorophyll alpha",
+          "n_strains": 20,
+          "frac": 0.0008
+        },
+        {
+          "value": "butyrate",
+          "n_strains": 19,
+          "frac": 0.0008
+        },
+        {
+          "value": "propionate",
+          "n_strains": 17,
+          "frac": 0.0007
+        },
+        {
+          "value": "polyhydroxybutyrate",
+          "n_strains": 16,
+          "frac": 0.0007
+        },
+        {
+          "value": "2-dehydro-d-gluconate",
+          "n_strains": 15,
+          "frac": 0.0006
+        },
+        {
+          "value": "l-lactate",
+          "n_strains": 15,
+          "frac": 0.0006
+        },
+        {
+          "value": "elemental sulfur",
+          "n_strains": 14,
+          "frac": 0.0006
+        },
+        {
+          "value": "dihydroxyacetone",
+          "n_strains": 13,
+          "frac": 0.0006
+        },
+        {
+          "value": "succinate",
+          "n_strains": 13,
+          "frac": 0.0006
+        },
+        {
+          "value": "cobalamin",
+          "n_strains": 13,
+          "frac": 0.0006
+        },
+        {
+          "value": "d-lactate",
+          "n_strains": 13,
+          "frac": 0.0006
+        },
+        {
+          "value": "5-dehydro-d-gluconate",
+          "n_strains": 12,
+          "frac": 0.0005
+        },
+        {
+          "value": "ammonia",
+          "n_strains": 12,
+          "frac": 0.0005
+        },
+        {
+          "value": "exopolysaccharide",
+          "n_strains": 11,
+          "frac": 0.0005
+        },
+        {
+          "value": "isobutyrate",
+          "n_strains": 11,
+          "frac": 0.0005
+        },
+        {
+          "value": "methane",
+          "n_strains": 11,
+          "frac": 0.0005
+        },
+        {
+          "value": "streptomycin",
+          "n_strains": 10,
+          "frac": 0.0004
+        },
+        {
+          "value": "isovalerate",
+          "n_strains": 8,
+          "frac": 0.0003
+        },
+        {
+          "value": "chloramphenicol",
+          "n_strains": 8,
+          "frac": 0.0003
+        },
+        {
+          "value": "cellulose",
+          "n_strains": 7,
+          "frac": 0.0003
+        },
+        {
+          "value": "dl-lactate",
+          "n_strains": 7,
+          "frac": 0.0003
+        },
+        {
+          "value": "urea",
+          "n_strains": 7,
+          "frac": 0.0003
+        },
+        {
+          "value": "dextran",
+          "n_strains": 6,
+          "frac": 0.0003
+        },
+        {
+          "value": "l-glutamate",
+          "n_strains": 6,
+          "frac": 0.0003
+        },
+        {
+          "value": "oxytetracycline",
+          "n_strains": 6,
+          "frac": 0.0003
+        },
+        {
+          "value": "fungichromin",
+          "n_strains": 6,
+          "frac": 0.0003
+        },
+        {
+          "value": "(r)-lactate",
+          "n_strains": 6,
+          "frac": 0.0003
+        },
+        {
+          "value": "(s)-lactate",
+          "n_strains": 6,
+          "frac": 0.0003
+        },
+        {
+          "value": "indole-3-acetate",
+          "n_strains": 6,
+          "frac": 0.0003
+        },
+        {
+          "value": "zeaxanthin",
+          "n_strains": 6,
+          "frac": 0.0003
+        },
+        {
+          "value": "beta-hydroxybutyrate",
+          "n_strains": 5,
+          "frac": 0.0002
+        },
+        {
+          "value": "butanol",
+          "n_strains": 5,
+          "frac": 0.0002
+        },
+        {
+          "value": "actinomycin",
+          "n_strains": 5,
+          "frac": 0.0002
+        }
+      ]
+    },
+    "amr_phenotype": {
+      "size": 30,
+      "n_labeled_strains": 6859,
+      "n_unique_in_data": 209,
+      "items": [
+        {
+          "value": "0129 (2,4-diamino-6,7-di-iso-propylpteridine phosphate)",
+          "n_strains": 3076,
+          "frac": 0.4485
+        },
+        {
+          "value": "kanamycin",
+          "n_strains": 2003,
+          "frac": 0.292
+        },
+        {
+          "value": "novobiocin",
+          "n_strains": 1111,
+          "frac": 0.162
+        },
+        {
+          "value": "ampicillin",
+          "n_strains": 1074,
+          "frac": 0.1566
+        },
+        {
+          "value": "erythromycin",
+          "n_strains": 1038,
+          "frac": 0.1513
+        },
+        {
+          "value": "chloramphenicol",
+          "n_strains": 849,
+          "frac": 0.1238
+        },
+        {
+          "value": "tetracycline",
+          "n_strains": 781,
+          "frac": 0.1139
+        },
+        {
+          "value": "gentamicin",
+          "n_strains": 725,
+          "frac": 0.1057
+        },
+        {
+          "value": "nalidixic acid",
+          "n_strains": 693,
+          "frac": 0.101
+        },
+        {
+          "value": "streptomycin",
+          "n_strains": 669,
+          "frac": 0.0975
+        },
+        {
+          "value": "vancomycin",
+          "n_strains": 636,
+          "frac": 0.0927
+        },
+        {
+          "value": "penicillin g",
+          "n_strains": 635,
+          "frac": 0.0926
+        },
+        {
+          "value": "cycloheximide",
+          "n_strains": 567,
+          "frac": 0.0827
+        },
+        {
+          "value": "cefazolin",
+          "n_strains": 544,
+          "frac": 0.0793
+        },
+        {
+          "value": "lincomycin",
+          "n_strains": 480,
+          "frac": 0.07
+        },
+        {
+          "value": "neomycin",
+          "n_strains": 474,
+          "frac": 0.0691
+        },
+        {
+          "value": "rifampicin",
+          "n_strains": 463,
+          "frac": 0.0675
+        },
+        {
+          "value": "polymyxin b",
+          "n_strains": 413,
+          "frac": 0.0602
+        },
+        {
+          "value": "oxacillin",
+          "n_strains": 352,
+          "frac": 0.0513
+        },
+        {
+          "value": "clindamycin",
+          "n_strains": 350,
+          "frac": 0.051
+        },
+        {
+          "value": "ciprofloxacin",
+          "n_strains": 303,
+          "frac": 0.0442
+        },
+        {
+          "value": "bacitracin",
+          "n_strains": 279,
+          "frac": 0.0407
+        },
+        {
+          "value": "carbenicillin",
+          "n_strains": 278,
+          "frac": 0.0405
+        },
+        {
+          "value": "nystatin",
+          "n_strains": 278,
+          "frac": 0.0405
+        },
+        {
+          "value": "penicillin",
+          "n_strains": 263,
+          "frac": 0.0383
+        },
+        {
+          "value": "amikacin",
+          "n_strains": 260,
+          "frac": 0.0379
+        },
+        {
+          "value": "norfloxacin",
+          "n_strains": 258,
+          "frac": 0.0376
+        },
+        {
+          "value": "ceftriaxone",
+          "n_strains": 256,
+          "frac": 0.0373
+        },
+        {
+          "value": "aztreonam",
+          "n_strains": 253,
+          "frac": 0.0369
+        },
+        {
+          "value": "cefotaxime",
+          "n_strains": 232,
+          "frac": 0.0338
+        }
+      ]
+    },
+    "fatty_acid_profile": {
+      "size": 30,
+      "n_labeled_strains": 5420,
+      "n_unique_in_data": 1467,
+      "items": [
+        {
+          "value": "C16:0",
+          "n_strains": 5174,
+          "frac": 0.9546
+        },
+        {
+          "value": "C14:0",
+          "n_strains": 3633,
+          "frac": 0.6703
+        },
+        {
+          "value": "C18:0",
+          "n_strains": 3575,
+          "frac": 0.6596
+        },
+        {
+          "value": "C18:2 &omega;6,9c/C18:0 ANTE",
+          "n_strains": 3022,
+          "frac": 0.5576
+        },
+        {
+          "value": "C16:1 &omega;7c",
+          "n_strains": 2522,
+          "frac": 0.4653
+        },
+        {
+          "value": "C18:1 &omega;9c",
+          "n_strains": 2380,
+          "frac": 0.4391
+        },
+        {
+          "value": "C12:0",
+          "n_strains": 1747,
+          "frac": 0.3223
+        },
+        {
+          "value": "C18:1 &omega;7c /12t/9t",
+          "n_strains": 1670,
+          "frac": 0.3081
+        },
+        {
+          "value": "C16:0 iso",
+          "n_strains": 1665,
+          "frac": 0.3072
+        },
+        {
+          "value": "Unidentified",
+          "n_strains": 1600,
+          "frac": 0.2952
+        },
+        {
+          "value": "C15:0",
+          "n_strains": 1514,
+          "frac": 0.2793
+        },
+        {
+          "value": "C17:0",
+          "n_strains": 1459,
+          "frac": 0.2692
+        },
+        {
+          "value": "C17:0 iso",
+          "n_strains": 1375,
+          "frac": 0.2537
+        },
+        {
+          "value": "C17:0 anteiso",
+          "n_strains": 1364,
+          "frac": 0.2517
+        },
+        {
+          "value": "C15:0 ISO",
+          "n_strains": 1137,
+          "frac": 0.2098
+        },
+        {
+          "value": "C15:0 ANTEISO",
+          "n_strains": 1082,
+          "frac": 0.1996
+        },
+        {
+          "value": "C14:0 3OH/C16:1 ISO I",
+          "n_strains": 1065,
+          "frac": 0.1965
+        },
+        {
+          "value": "C15:0 iso",
+          "n_strains": 830,
+          "frac": 0.1531
+        },
+        {
+          "value": "C14:0 ISO",
+          "n_strains": 791,
+          "frac": 0.1459
+        },
+        {
+          "value": "C12:0 3OH",
+          "n_strains": 779,
+          "frac": 0.1437
+        },
+        {
+          "value": "C16:1 &omega;9c",
+          "n_strains": 770,
+          "frac": 0.1421
+        },
+        {
+          "value": "C16:0 3OH",
+          "n_strains": 764,
+          "frac": 0.141
+        },
+        {
+          "value": "C15:0 anteiso",
+          "n_strains": 702,
+          "frac": 0.1295
+        },
+        {
+          "value": "C17:0 iso 3OH",
+          "n_strains": 602,
+          "frac": 0.1111
+        },
+        {
+          "value": "C13:0 iso",
+          "n_strains": 573,
+          "frac": 0.1057
+        },
+        {
+          "value": "C17:1 &omega;8c",
+          "n_strains": 558,
+          "frac": 0.103
+        },
+        {
+          "value": "C17:0 CYCLO",
+          "n_strains": 558,
+          "frac": 0.103
+        },
+        {
+          "value": "C13:0 ISO 2OH",
+          "n_strains": 539,
+          "frac": 0.0994
+        },
+        {
+          "value": "C10:0 3OH",
+          "n_strains": 516,
+          "frac": 0.0952
+        },
+        {
+          "value": "C19:0 CYCLO &omega;8c",
+          "n_strains": 510,
+          "frac": 0.0941
+        }
+      ]
+    },
+    "isolation_source": {
+      "size": 20,
+      "n_labeled_strains": 57783,
+      "n_unique_in_data": 24004,
+      "items": [
+        {
+          "value": "soil",
+          "n_strains": 3164,
+          "frac": 0.0548
+        },
+        {
+          "value": "soil with plant residues",
+          "n_strains": 2806,
+          "frac": 0.0486
+        },
+        {
+          "value": "Human blood",
+          "n_strains": 1220,
+          "frac": 0.0211
+        },
+        {
+          "value": "Human",
+          "n_strains": 1010,
+          "frac": 0.0175
+        },
+        {
+          "value": "Soil",
+          "n_strains": 649,
+          "frac": 0.0112
+        },
+        {
+          "value": "Human, Blood",
+          "n_strains": 537,
+          "frac": 0.0093
+        },
+        {
+          "value": "Human feces",
+          "n_strains": 392,
+          "frac": 0.0068
+        },
+        {
+          "value": "marine sediment",
+          "n_strains": 338,
+          "frac": 0.0058
+        },
+        {
+          "value": "Human urine",
+          "n_strains": 322,
+          "frac": 0.0056
+        },
+        {
+          "value": "seawater",
+          "n_strains": 322,
+          "frac": 0.0056
+        },
+        {
+          "value": "Environment, Soil",
+          "n_strains": 281,
+          "frac": 0.0049
+        },
+        {
+          "value": "Industry",
+          "n_strains": 235,
+          "frac": 0.0041
+        },
+        {
+          "value": "sediment",
+          "n_strains": 191,
+          "frac": 0.0033
+        },
+        {
+          "value": "spacecraft-associated clean room class ISO 8, Herschel Space Observatory",
+          "n_strains": 188,
+          "frac": 0.0033
+        },
+        {
+          "value": "leaf of <i>Arabidopsis thaliana</i>, wild-type genotype",
+          "n_strains": 178,
+          "frac": 0.0031
+        },
+        {
+          "value": "human faeces",
+          "n_strains": 173,
+          "frac": 0.003
+        },
+        {
+          "value": "forest soil",
+          "n_strains": 167,
+          "frac": 0.0029
+        },
+        {
+          "value": "Human, Sputum",
+          "n_strains": 156,
+          "frac": 0.0027
+        },
+        {
+          "value": "roots of <i>Arabidopsis thaliana</i> ecotype Shakdara (Sha)",
+          "n_strains": 152,
+          "frac": 0.0026
+        },
+        {
+          "value": "Human wound",
+          "n_strains": 150,
+          "frac": 0.0026
+        }
+      ]
+    },
+    "country": {
+      "size": 100,
+      "n_labeled_strains": 53065,
+      "n_unique_in_data": 246,
+      "items": [
+        {
+          "value": "Sweden",
+          "n_strains": 10403,
+          "frac": 0.196
+        },
+        {
+          "value": "Germany",
+          "n_strains": 4822,
+          "frac": 0.0909
+        },
+        {
+          "value": "USA",
+          "n_strains": 4120,
+          "frac": 0.0776
+        },
+        {
+          "value": "France",
+          "n_strains": 3682,
+          "frac": 0.0694
+        },
+        {
+          "value": "China",
+          "n_strains": 3443,
+          "frac": 0.0649
+        },
+        {
+          "value": "Japan",
+          "n_strains": 2792,
+          "frac": 0.0526
+        },
+        {
+          "value": "Republic of Korea",
+          "n_strains": 2728,
+          "frac": 0.0514
+        },
+        {
+          "value": "India",
+          "n_strains": 1585,
+          "frac": 0.0299
+        },
+        {
+          "value": "United Kingdom",
+          "n_strains": 1394,
+          "frac": 0.0263
+        },
+        {
+          "value": "Spain",
+          "n_strains": 1220,
+          "frac": 0.023
+        },
+        {
+          "value": "Italy",
+          "n_strains": 916,
+          "frac": 0.0173
+        },
+        {
+          "value": "Netherlands",
+          "n_strains": 710,
+          "frac": 0.0134
+        },
+        {
+          "value": "Russia",
+          "n_strains": 640,
+          "frac": 0.0121
+        },
+        {
+          "value": "Egypt",
+          "n_strains": 636,
+          "frac": 0.012
+        },
+        {
+          "value": "Denmark",
+          "n_strains": 613,
+          "frac": 0.0116
+        },
+        {
+          "value": "Greece",
+          "n_strains": 611,
+          "frac": 0.0115
+        },
+        {
+          "value": "Switzerland",
+          "n_strains": 602,
+          "frac": 0.0113
+        },
+        {
+          "value": "Norway",
+          "n_strains": 598,
+          "frac": 0.0113
+        },
+        {
+          "value": "Belgium",
+          "n_strains": 497,
+          "frac": 0.0094
+        },
+        {
+          "value": "Australia",
+          "n_strains": 487,
+          "frac": 0.0092
+        },
+        {
+          "value": "Brazil",
+          "n_strains": 473,
+          "frac": 0.0089
+        },
+        {
+          "value": "Canada",
+          "n_strains": 453,
+          "frac": 0.0085
+        },
+        {
+          "value": "Thailand",
+          "n_strains": 449,
+          "frac": 0.0085
+        },
+        {
+          "value": "Taiwan, Province of China",
+          "n_strains": 446,
+          "frac": 0.0084
+        },
+        {
+          "value": "South Africa",
+          "n_strains": 379,
+          "frac": 0.0071
+        },
+        {
+          "value": "Malaysia",
+          "n_strains": 318,
+          "frac": 0.006
+        },
+        {
+          "value": "Austria",
+          "n_strains": 314,
+          "frac": 0.0059
+        },
+        {
+          "value": "Antarctica",
+          "n_strains": 300,
+          "frac": 0.0057
+        },
+        {
+          "value": "Portugal",
+          "n_strains": 294,
+          "frac": 0.0055
+        },
+        {
+          "value": "United States of America",
+          "n_strains": 280,
+          "frac": 0.0053
+        },
+        {
+          "value": "Mexico",
+          "n_strains": 276,
+          "frac": 0.0052
+        },
+        {
+          "value": "Czech Republic",
+          "n_strains": 265,
+          "frac": 0.005
+        },
+        {
+          "value": "Turkey",
+          "n_strains": 259,
+          "frac": 0.0049
+        },
+        {
+          "value": "Finland",
+          "n_strains": 252,
+          "frac": 0.0047
+        },
+        {
+          "value": "Indonesia",
+          "n_strains": 228,
+          "frac": 0.0043
+        },
+        {
+          "value": "New Zealand",
+          "n_strains": 221,
+          "frac": 0.0042
+        },
+        {
+          "value": "Tunisia",
+          "n_strains": 205,
+          "frac": 0.0039
+        },
+        {
+          "value": "Cyprus",
+          "n_strains": 183,
+          "frac": 0.0034
+        },
+        {
+          "value": "Malta",
+          "n_strains": 156,
+          "frac": 0.0029
+        },
+        {
+          "value": "Israel",
+          "n_strains": 154,
+          "frac": 0.0029
+        },
+        {
+          "value": "Colombia",
+          "n_strains": 144,
+          "frac": 0.0027
+        },
+        {
+          "value": "Czechoslovakia",
+          "n_strains": 137,
+          "frac": 0.0026
+        },
+        {
+          "value": "Algeria",
+          "n_strains": 137,
+          "frac": 0.0026
+        },
+        {
+          "value": "Senegal",
+          "n_strains": 134,
+          "frac": 0.0025
+        },
+        {
+          "value": "Bulgaria",
+          "n_strains": 132,
+          "frac": 0.0025
+        },
+        {
+          "value": "Hungary",
+          "n_strains": 128,
+          "frac": 0.0024
+        },
+        {
+          "value": "Chile",
+          "n_strains": 128,
+          "frac": 0.0024
+        },
+        {
+          "value": "Vietnam",
+          "n_strains": 124,
+          "frac": 0.0023
+        },
+        {
+          "value": "Kenya",
+          "n_strains": 119,
+          "frac": 0.0022
+        },
+        {
+          "value": "Peru",
+          "n_strains": 108,
+          "frac": 0.002
+        },
+        {
+          "value": "Iran",
+          "n_strains": 101,
+          "frac": 0.0019
+        },
+        {
+          "value": "Costa Rica",
+          "n_strains": 95,
+          "frac": 0.0018
+        },
+        {
+          "value": "USSR",
+          "n_strains": 94,
+          "frac": 0.0018
+        },
+        {
+          "value": "Pacific Ocean",
+          "n_strains": 93,
+          "frac": 0.0018
+        },
+        {
+          "value": "International waters",
+          "n_strains": 92,
+          "frac": 0.0017
+        },
+        {
+          "value": "Nigeria",
+          "n_strains": 87,
+          "frac": 0.0016
+        },
+        {
+          "value": "Pakistan",
+          "n_strains": 85,
+          "frac": 0.0016
+        },
+        {
+          "value": "Morocco",
+          "n_strains": 83,
+          "frac": 0.0016
+        },
+        {
+          "value": "Argentina",
+          "n_strains": 83,
+          "frac": 0.0016
+        },
+        {
+          "value": "French Guiana",
+          "n_strains": 80,
+          "frac": 0.0015
+        },
+        {
+          "value": "Tanzania",
+          "n_strains": 76,
+          "frac": 0.0014
+        },
+        {
+          "value": "Iceland",
+          "n_strains": 74,
+          "frac": 0.0014
+        },
+        {
+          "value": "Philippines",
+          "n_strains": 74,
+          "frac": 0.0014
+        },
+        {
+          "value": "Sri Lanka",
+          "n_strains": 71,
+          "frac": 0.0013
+        },
+        {
+          "value": "Bangladesh",
+          "n_strains": 69,
+          "frac": 0.0013
+        },
+        {
+          "value": "Iraq",
+          "n_strains": 67,
+          "frac": 0.0013
+        },
+        {
+          "value": "Poland",
+          "n_strains": 58,
+          "frac": 0.0011
+        },
+        {
+          "value": "Singapore",
+          "n_strains": 55,
+          "frac": 0.001
+        },
+        {
+          "value": "Palau",
+          "n_strains": 53,
+          "frac": 0.001
+        },
+        {
+          "value": "Saudi Arabia",
+          "n_strains": 52,
+          "frac": 0.001
+        },
+        {
+          "value": "Ghana",
+          "n_strains": 52,
+          "frac": 0.001
+        },
+        {
+          "value": "Jordan",
+          "n_strains": 49,
+          "frac": 0.0009
+        },
+        {
+          "value": "Syrian Arab Republic",
+          "n_strains": 49,
+          "frac": 0.0009
+        },
+        {
+          "value": "Sudan",
+          "n_strains": 49,
+          "frac": 0.0009
+        },
+        {
+          "value": "Namibia",
+          "n_strains": 47,
+          "frac": 0.0009
+        },
+        {
+          "value": "Ceylon",
+          "n_strains": 46,
+          "frac": 0.0009
+        },
+        {
+          "value": "Romania",
+          "n_strains": 45,
+          "frac": 0.0008
+        },
+        {
+          "value": "Ireland",
+          "n_strains": 45,
+          "frac": 0.0008
+        },
+        {
+          "value": "Slovenia",
+          "n_strains": 40,
+          "frac": 0.0008
+        },
+        {
+          "value": "Dominican Republic",
+          "n_strains": 37,
+          "frac": 0.0007
+        },
+        {
+          "value": "Atlantic Ocean",
+          "n_strains": 36,
+          "frac": 0.0007
+        },
+        {
+          "value": "Chad",
+          "n_strains": 35,
+          "frac": 0.0007
+        },
+        {
+          "value": "Ukraine",
+          "n_strains": 34,
+          "frac": 0.0006
+        },
+        {
+          "value": "Ethiopia",
+          "n_strains": 33,
+          "frac": 0.0006
+        },
+        {
+          "value": "Cameroon",
+          "n_strains": 33,
+          "frac": 0.0006
+        },
+        {
+          "value": "Indian Ocean",
+          "n_strains": 32,
+          "frac": 0.0006
+        },
+        {
+          "value": "Panama",
+          "n_strains": 32,
+          "frac": 0.0006
+        },
+        {
+          "value": "Madagascar",
+          "n_strains": 32,
+          "frac": 0.0006
+        },
+        {
+          "value": "Cuba",
+          "n_strains": 32,
+          "frac": 0.0006
+        },
+        {
+          "value": "Georgia",
+          "n_strains": 31,
+          "frac": 0.0006
+        },
+        {
+          "value": "Trinidad and Tobago",
+          "n_strains": 27,
+          "frac": 0.0005
+        },
+        {
+          "value": "Nepal",
+          "n_strains": 25,
+          "frac": 0.0005
+        },
+        {
+          "value": "Venezuela",
+          "n_strains": 24,
+          "frac": 0.0005
+        },
+        {
+          "value": "Syria",
+          "n_strains": 22,
+          "frac": 0.0004
+        },
+        {
+          "value": "Papua New Guinea",
+          "n_strains": 22,
+          "frac": 0.0004
+        },
+        {
+          "value": "Turkmenistan",
+          "n_strains": 21,
+          "frac": 0.0004
+        },
+        {
+          "value": "Republic of the Congo",
+          "n_strains": 21,
+          "frac": 0.0004
+        },
+        {
+          "value": "Hong Kong",
+          "n_strains": 20,
+          "frac": 0.0004
+        },
+        {
+          "value": "Yugoslavia",
+          "n_strains": 20,
+          "frac": 0.0004
+        },
+        {
+          "value": "Lithuania",
+          "n_strains": 20,
+          "frac": 0.0004
+        }
+      ]
+    },
+    "gram_stain": {
+      "size": 3,
+      "n_labeled_strains": 15606,
+      "n_unique_in_data": 3,
+      "items": [
+        {
+          "value": "negative",
+          "n_strains": 9244,
+          "frac": 0.5923
+        },
+        {
+          "value": "positive",
+          "n_strains": 6251,
+          "frac": 0.4006
+        },
+        {
+          "value": "variable",
+          "n_strains": 111,
+          "frac": 0.0071
+        }
+      ]
+    },
+    "cell_shape": {
+      "size": 7,
+      "n_labeled_strains": 15181,
+      "n_unique_in_data": 7,
+      "items": [
+        {
+          "value": "rod",
+          "n_strains": 12113,
+          "frac": 0.7979
+        },
+        {
+          "value": "coccus",
+          "n_strains": 1767,
+          "frac": 0.1164
+        },
+        {
+          "value": "other",
+          "n_strains": 1044,
+          "frac": 0.0688
+        },
+        {
+          "value": "filament",
+          "n_strains": 93,
+          "frac": 0.0061
+        },
+        {
+          "value": "spiral",
+          "n_strains": 66,
+          "frac": 0.0043
+        },
+        {
+          "value": "pleomorphic",
+          "n_strains": 57,
+          "frac": 0.0038
+        },
+        {
+          "value": "vibrio",
+          "n_strains": 41,
+          "frac": 0.0027
+        }
+      ]
+    },
+    "oxygen_tolerance": {
+      "size": 6,
+      "n_labeled_strains": 23253,
+      "n_unique_in_data": 6,
+      "items": [
+        {
+          "value": "obligate_aerobe",
+          "n_strains": 15521,
+          "frac": 0.6675
+        },
+        {
+          "value": "microaerophile",
+          "n_strains": 3978,
+          "frac": 0.1711
+        },
+        {
+          "value": "facultative_anaerobe",
+          "n_strains": 3491,
+          "frac": 0.1501
+        },
+        {
+          "value": "obligate_anaerobe",
+          "n_strains": 155,
+          "frac": 0.0067
+        },
+        {
+          "value": "facultative_aerobe",
+          "n_strains": 92,
+          "frac": 0.004
+        },
+        {
+          "value": "aerotolerant",
+          "n_strains": 16,
+          "frac": 0.0007
+        }
+      ]
+    },
+    "halophily": {
+      "size": 4,
+      "n_labeled_strains": 8704,
+      "n_unique_in_data": 4,
+      "items": [
+        {
+          "value": "halophile",
+          "n_strains": 5790,
+          "frac": 0.6652
+        },
+        {
+          "value": "non_halophile",
+          "n_strains": 1354,
+          "frac": 0.1556
+        },
+        {
+          "value": "halotolerant",
+          "n_strains": 943,
+          "frac": 0.1083
+        },
+        {
+          "value": "extreme_halophile",
+          "n_strains": 617,
+          "frac": 0.0709
+        }
+      ]
+    },
+    "temperature_class": {
+      "size": 5,
+      "n_labeled_strains": 50385,
+      "n_unique_in_data": 5,
+      "items": [
+        {
+          "value": "mesophile",
+          "n_strains": 48223,
+          "frac": 0.9571
+        },
+        {
+          "value": "thermophile",
+          "n_strains": 1446,
+          "frac": 0.0287
+        },
+        {
+          "value": "psychrotroph",
+          "n_strains": 360,
+          "frac": 0.0071
+        },
+        {
+          "value": "hyperthermophile",
+          "n_strains": 183,
+          "frac": 0.0036
+        },
+        {
+          "value": "psychrophile",
+          "n_strains": 173,
+          "frac": 0.0034
+        }
+      ]
+    },
+    "ph_class": {
+      "size": 3,
+      "n_labeled_strains": 6745,
+      "n_unique_in_data": 3,
+      "items": [
+        {
+          "value": "alkaliphile",
+          "n_strains": 4037,
+          "frac": 0.5985
+        },
+        {
+          "value": "neutrophile",
+          "n_strains": 2425,
+          "frac": 0.3595
+        },
+        {
+          "value": "acidophile",
+          "n_strains": 283,
+          "frac": 0.042
+        }
+      ]
+    },
+    "biosafety_level": {
+      "size": 3,
+      "n_labeled_strains": 31916,
+      "n_unique_in_data": 3,
+      "items": [
+        {
+          "value": "BSL-1",
+          "n_strains": 23565,
+          "frac": 0.7383
+        },
+        {
+          "value": "BSL-2",
+          "n_strains": 8069,
+          "frac": 0.2528
+        },
+        {
+          "value": "BSL-3",
+          "n_strains": 282,
+          "frac": 0.0088
+        }
+      ]
+    },
+    "motility": {
+      "size": 2,
+      "n_labeled_strains": 14058,
+      "n_positive": 5656,
+      "positive_rate": 0.4023
+    },
+    "sporulation": {
+      "size": 2,
+      "n_labeled_strains": 5443,
+      "n_positive": 1921,
+      "positive_rate": 0.3529
+    },
+    "pigmentation": {
+      "size": 2,
+      "n_labeled_strains": 4533,
+      "n_positive": 3168,
+      "positive_rate": 0.6989
+    },
+    "catalase": {
+      "size": 2,
+      "n_labeled_strains": 15317,
+      "n_positive": 11860,
+      "positive_rate": 0.7743
+    },
+    "cytochrome_oxidase": {
+      "size": 2,
+      "n_labeled_strains": 15917,
+      "n_positive": 8653,
+      "positive_rate": 0.5436
+    },
+    "pathogenicity_human": {
+      "size": 2,
+      "n_labeled_strains": 25329,
+      "n_positive": 3262,
+      "positive_rate": 0.1288
+    },
+    "pathogenicity_animal": {
+      "size": 2,
+      "n_labeled_strains": 25641,
+      "n_positive": 2716,
+      "positive_rate": 0.1059
+    }
+  }
+}

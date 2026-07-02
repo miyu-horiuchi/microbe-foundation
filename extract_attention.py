@@ -57,9 +57,13 @@ def main() -> None:
     ck = torch.load(args.checkpoint, map_location=device, weights_only=True)
     if not ck.get("attention_pool"):
         raise SystemExit("checkpoint is not an attention-pool model — nothing to extract")
+    saved_pool = ck.get("pooling")
+    pooling = saved_pool if saved_pool and saved_pool != "pre-pooled" else None
     model = M.MicrobeFoundationModel(
         ck["input_dim"], {h: {"size": s} for h, s in ck["head_sizes"].items()},
-        hidden=ck["hidden"], attention_pool=True,
+        hidden=ck["hidden"], attention_pool=True, pooling=pooling,
+        topk=ck.get("topk", 8),
+        st_heads=ck.get("st_heads", 4), st_inducing=ck.get("st_inducing", 16),
     )
     model.load_state_dict(ck["state_dict"])
     model.to(device).eval()

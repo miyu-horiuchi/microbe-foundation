@@ -4,5 +4,6 @@ Lift = primary metric(embed+extra) − primary metric(embed), averaged over logi
 
 | Extra-data source | Mean lift |
 |---|---:|
-| isolation | +0.000 |
+| embed:eggnog_features_6738 | +0.014 |
+| isolation | +0.006 |
 | taxonomy | +0.006 |

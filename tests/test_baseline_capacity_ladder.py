@@ -58,3 +58,18 @@ def test_load_ceilings_reads_knn_auroc(tmp_path):
     c = cl.load_ceilings(csv)
     assert abs(c["sporulation"] - 0.924) < 1e-9
     assert abs(c["motility"] - 0.695) < 1e-9
+
+
+def test_build_extra_matrix_taxonomy_is_train_fit():
+    sub = pd.DataFrame({
+        "phylum": ["P1", "P1", "P2", "P3"],
+        "class":  ["C1", "C1", "C2", "C3"],
+        "order":  ["O1", "O1", "O2", "O3"],
+    })
+    train_mask = np.array([True, True, False, False])
+    mat = cl.build_extra_matrix(sub, "taxonomy", train_mask)
+    # only P1/C1/O1 seen in train -> 3 columns; unseen test rows are all-zero
+    assert mat.shape == (4, 3)
+    assert mat[0].tolist() == [1.0, 1.0, 1.0]
+    assert mat[2].tolist() == [0.0, 0.0, 0.0]
+    assert mat[3].tolist() == [0.0, 0.0, 0.0]

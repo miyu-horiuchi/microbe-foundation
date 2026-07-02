@@ -148,3 +148,87 @@ def run_capacity_ladder(feats, df, targets, ceilings, seed):
             "verdict": verdict,
         })
     return rung_rows, summary_rows
+
+
+from sklearn.decomposition import PCA  # noqa: E402
+
+FUSION_MODELS: list[tuple[str, int | None]] = [
+    ("logistic_l2", 25), ("regularized_rf", None), ("hist_gd", None),
+]
+EXTRA_COLS = {"taxonomy": TAXONOMY_COLS, "isolation": ISOLATION_COLS}
+
+
+def build_extra_matrix(sub: pd.DataFrame, source: str, train_mask: np.ndarray) -> np.ndarray:
+    cols = EXTRA_COLS[source]
+    top_k = None if source == "taxonomy" else 30
+    blocks = []
+    for col in cols:
+        cats = build_onehot(sub[col][train_mask], top_k=top_k)
+        blocks.append(apply_onehot(sub[col], cats))
+    return np.hstack(blocks).astype(np.float32) if blocks else np.zeros((len(sub), 0), np.float32)
+
+
+def load_second_embedding(path, bacdive_ids, n_components=50, seed=0):
+    d = np.load(path, allow_pickle=False)
+    ids = [str(i) for i in d["bacdive_ids"]]
+    feats = np.asarray(d["features"], dtype=np.float32)
+    if feats.shape[1] > n_components:
+        feats = PCA(n_components=n_components, random_state=seed).fit_transform(feats)
+    id_to_row = {b: i for i, b in enumerate(ids)}
+    out = np.full((len(bacdive_ids), feats.shape[1]), np.nan, dtype=np.float32)
+    for r, b in enumerate(bacdive_ids):
+        j = id_to_row.get(str(b))
+        if j is not None:
+            out[r] = feats[j]
+    return out
+
+
+def _fusion_score(x_train, y_train, x_test, y_test, model, seed):
+    metric, value = _score(x_train, y_train, x_test, y_test, model[0], model[1], seed)
+    return metric, value
+
+
+def run_fusion(feats, df, targets, sources, second_embed_paths, seed):
+    rows = []
+    for target in targets:
+        sub = df[target.mask].copy()
+        y = target.y[target.mask]
+        is_train = (sub["fsplit"] == "train").to_numpy()
+        is_test = (sub["fsplit"] == "test").to_numpy()
+        if is_train.sum() == 0 or is_test.sum() == 0:
+            continue
+        if len(np.unique(y[is_train])) < 2 or len(np.unique(y[is_test])) < 2:
+            continue
+        rowsel = sub["row"].to_numpy()
+        embed = feats[rowsel]
+        yt, yte = y[is_train].astype(int), y[is_test].astype(int)
+
+        extra_mats = {s: build_extra_matrix(sub, s, is_train) for s in sources}
+        for path in second_embed_paths:
+            extra_mats[f"embed:{Path(path).stem}"] = load_second_embedding(
+                path, sub["bid"].tolist(), seed=seed)
+
+        for source, extra in extra_mats.items():
+            combos = {
+                "embed": embed,
+                "extra": extra,
+                "embed+extra": np.hstack([embed, extra]),
+            }
+            base = {}
+            for arm, X in combos.items():
+                if X.shape[1] == 0:
+                    continue
+                for model in FUSION_MODELS:
+                    metric, value = _fusion_score(
+                        X[is_train], yt, X[is_test], yte, model, seed)
+                    key = (model[0], br.rank_label(model[1]))
+                    if arm == "embed":
+                        base[key] = value
+                    lift = value - base.get(key, float("nan")) if arm == "embed+extra" else float("nan")
+                    rows.append({
+                        "target": target.name, "group": target.group,
+                        "source": source, "arm": arm,
+                        "model": model[0], "rank": br.rank_label(model[1]),
+                        "primary_metric": metric, "score": value, "lift": lift,
+                    })
+    return rows

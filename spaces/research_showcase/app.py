@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import altair as alt
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -139,6 +140,176 @@ def gradient_chart(df: pd.DataFrame):
     ).configure_legend(labelColor="#1f1d18", titleColor="#5a554a")
 
 
+def effective_rank(eigenvalues: np.ndarray) -> float:
+    vals = np.asarray(eigenvalues, dtype=float)
+    vals = vals[vals > 1e-12]
+    if vals.size == 0:
+        return 0.0
+    probs = vals / vals.sum()
+    entropy = -np.sum(probs * np.log(probs))
+    return float(np.exp(entropy))
+
+
+def generate_manifold_points(
+    n_points: int,
+    ambient_dim: int,
+    collapse: float,
+    seed: int = 0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Simulate embeddings in ambient_dim-D space.
+
+    collapse=0 -> points spread across the full space.
+    collapse=1 -> points hug a 1-D line inside the space (dimensional collapse).
+    """
+    rng = np.random.default_rng(seed)
+    if ambient_dim < 2:
+        raise ValueError("ambient_dim must be >= 2")
+
+    t = rng.normal(size=n_points)
+    line = np.zeros((n_points, ambient_dim), dtype=float)
+    line[:, 0] = t
+    line[:, 1] = 0.26 * t
+    if ambient_dim > 2:
+        line[:, 2:] = 0.03 * rng.normal(size=(n_points, ambient_dim - 2))
+
+    full = rng.normal(size=(n_points, ambient_dim))
+    noise_scale = 0.04 * (1.0 - collapse)
+    points = (1.0 - collapse) * full + collapse * line + noise_scale * rng.normal(size=(n_points, ambient_dim))
+    return points, line
+
+
+def pca_summary(points: np.ndarray) -> tuple[pd.DataFrame, float, int]:
+    centered = points - points.mean(axis=0, keepdims=True)
+    _, singular_values, _ = np.linalg.svd(centered, full_matrices=False)
+    eigenvalues = (singular_values ** 2) / max(centered.shape[0] - 1, 1)
+    explained = eigenvalues / eigenvalues.sum()
+    df = pd.DataFrame(
+        {
+            "component": [f"PC{i + 1}" for i in range(len(eigenvalues))],
+            "eigenvalue": eigenvalues,
+            "explained": explained,
+            "cumulative": np.cumsum(explained),
+        }
+    )
+    return df, effective_rank(eigenvalues), int(points.shape[1])
+
+
+def collapse_scatter_chart(df: pd.DataFrame, title: str):
+    return (
+        alt.Chart(df)
+        .mark_circle(size=55, opacity=0.78)
+        .encode(
+            x=alt.X("x:Q", title="dimension 1", scale=alt.Scale(nice=True)),
+            y=alt.Y("y:Q", title="dimension 2", scale=alt.Scale(nice=True)),
+            color=alt.Color("kind:N", legend=alt.Legend(title=None)),
+            tooltip=["kind", alt.Tooltip("x:Q", format=".2f"), alt.Tooltip("y:Q", format=".2f")],
+        )
+        .properties(height=320, title=title)
+        .configure_view(stroke="#d6cdb6")
+        .configure_axis(labelColor="#5a554a", titleColor="#5a554a", gridColor="#e6dfca", domainColor="#d6cdb6")
+        .configure_title(fontSize=13, color="#1f1d18", font="IBM Plex Sans")
+    )
+
+
+def eigenvalue_chart(df: pd.DataFrame):
+    bars = (
+        alt.Chart(df)
+        .mark_bar(color="#a8521a")
+        .encode(
+            x=alt.X("component:N", sort=None, title=None),
+            y=alt.Y("eigenvalue:Q", title="variance along each PCA direction"),
+            tooltip=[
+                "component",
+                alt.Tooltip("eigenvalue:Q", format=".3f"),
+                alt.Tooltip("explained:Q", format=".1%"),
+                alt.Tooltip("cumulative:Q", format=".1%"),
+            ],
+        )
+    )
+    return bars.properties(height=240).configure_view(stroke="#d6cdb6").configure_axis(
+        labelColor="#5a554a",
+        titleColor="#5a554a",
+        gridColor="#e6dfca",
+        domainColor="#d6cdb6",
+    )
+
+
+def render_manifold_collapse_tab() -> None:
+    st.subheader("Why effective rank matters")
+    st.markdown(
+        """
+Your model outputs a **48-number vector** for each genome. Think of that as a point in
+48-dimensional space. Nothing forces the model to use all 48 directions. It can park
+every point along a thin curve or sheet inside that space. That thin region is the
+**manifold**.
+
+**Simple analogy:** you write down two coordinates for every point `(x, y)`, but the
+points only move along one line. The page is 2-D, yet almost all the variation is in
+one direction. You have two numbers on paper, but only about one degree of freedom.
+
+A **steep eigenspectrum** is the math version of the same picture. PCA asks which
+directions carry the most spread. If one direction dominates and the rest are tiny,
+**effective rank** is close to 1 even though the ambient dimension is 48.
+        """
+    )
+
+    collapse = st.slider(
+        "Dimensional collapse",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.92,
+        step=0.02,
+        help="0 = embeddings use the full space. 1 = embeddings collapse onto a 1-D line.",
+    )
+    ambient_dim = st.selectbox("Ambient dimension (real model uses 48)", [2, 8, 48], index=0)
+
+    points, line = generate_manifold_points(n_points=180, ambient_dim=ambient_dim, collapse=collapse)
+    pca_df, eff_rank, dim = pca_summary(points)
+
+    scatter_df = pd.concat(
+        [
+            pd.DataFrame({"x": points[:, 0], "y": points[:, 1], "kind": "embedding"}),
+            pd.DataFrame({"x": line[:, 0], "y": line[:, 1], "kind": "collapsed manifold"}),
+        ],
+        ignore_index=True,
+    )
+
+    left, right = st.columns([1.1, 0.9])
+    with left:
+        st.altair_chart(
+            collapse_scatter_chart(
+                scatter_df,
+                "2-D slice of the embedding space (first two coordinates)",
+            ),
+            use_container_width=True,
+        )
+        st.caption(
+            "Orange embeddings hug the gray manifold line when collapse is high. "
+            "This is the same idea as retarget() putting every point near `y ≈ 0.26x`."
+        )
+    with right:
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(metric_card(f"{dim}", "ambient dims"), unsafe_allow_html=True)
+        c2.markdown(metric_card(f"{eff_rank:.1f}", "effective rank"), unsafe_allow_html=True)
+        c3.markdown(metric_card(f"{pca_df.iloc[0]['explained']:.0%}", "variance in PC1"), unsafe_allow_html=True)
+        st.altair_chart(eigenvalue_chart(pca_df.head(min(12, len(pca_df)))), use_container_width=True)
+
+    if ambient_dim == 2:
+        st.markdown(
+            "<div class='pg-callout'>The plot shows a 2-D slice so you can see the geometry. "
+            "Real genome embeddings live in 48-D, but the same collapse can happen there: "
+            "many coordinates, few directions that actually vary.</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f"<div class='pg-callout'>Showing the first two coordinates of a {ambient_dim}-D cloud. "
+            "Collapse can be even harder to see by eye in high dimensions, which is why PCA "
+            "and effective rank are useful summaries.</div>",
+            unsafe_allow_html=True,
+        )
+
+
 def render_table(rows: list[dict], cols: list[str]) -> None:
     html_rows = []
     for row in rows:
@@ -178,7 +349,9 @@ def main() -> None:
     c3.markdown(metric_card(str(paper["n_traits"]), "prediction heads"), unsafe_allow_html=True)
     c4.markdown(metric_card("3 x 3", "splits x seeds"), unsafe_allow_html=True)
 
-    tabs = st.tabs(["Gradient", "Trait Classes", "Attention Spotlight", "VFDB + Ablation", "Benchmark Context"])
+    tabs = st.tabs(
+        ["Gradient", "Trait Classes", "Attention Spotlight", "VFDB + Ablation", "Benchmark Context", "Manifold Collapse"]
+    )
 
     with tabs[0]:
         df = pd.DataFrame(asset["headline_gradient"])
@@ -284,6 +457,9 @@ def main() -> None:
             "main contribution is the pooling rule plus mechanistic validation, not a new encoder sweep.</div>",
             unsafe_allow_html=True,
         )
+
+    with tabs[5]:
+        render_manifold_collapse_tab()
 
 
 if __name__ == "__main__":
